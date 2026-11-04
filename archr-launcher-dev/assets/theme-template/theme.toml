@@ -1,0 +1,39 @@
+# Minimal archr-launcher theme. Every key is optional and inherits from the
+# default theme. Top-level keys first, [tables] last.
+name = { en = "My theme", pt_BR = "Meu tema", es = "Mi tema", ru = "Моя тема" }
+description = { en = "Teal on charcoal.", pt_BR = "Verde-água sobre carvão.", es = "Verde azulado sobre carbón.", ru = "Бирюза на угольном фоне." }
+author = "your-github-user"
+version = "1.0.0"
+license = "MIT"
+min_launcher = "0.1.0"
+
+background = "#101418"
+surface = "#161C22"
+surface_elevated = "#1D252D"
+border = "#26313B"
+badge = "#26313B"
+text = "#EAF2F2"
+text_secondary = "#C3D0D0"
+muted = "#8FA3A3"
+dim = "#5F7373"
+accent = "#2EC4B6"
+accent_text = "#06201D"
+accent_text_secondary = "#0F4A44"
+
+corners = 0.6
+shadow = "soft"
+
+# Classic view: list on the right, panel and art on the left.
+[view.lista.systems]
+list = { x = 0.4375, w = 0.5375 }
+panel = { x = 0.025, w = 0.390625 }
+art = { x = 0.05625, w = 0.328125 }
+info = { x = 0.05, w = 0.340625 }
+
+# A new view the user can pick in Appearance › View.
+[view.compact]
+name = { en = "Compact", pt_BR = "Compacta", es = "Compacta", ru = "Компактный" }
+
+[view.compact.games]
+header = "compact"
+list = { mark = "bar", scroll = "center" }

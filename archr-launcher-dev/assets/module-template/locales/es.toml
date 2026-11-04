@@ -1,0 +1,7 @@
+"tile" = "Encendido"
+"title" = "Tiempo encendido"
+"section.state" = "Ahora"
+"section.options" = "Opciones"
+"row.now" = "Encendido desde hace"
+"row.seconds" = "Mostrar segundos"
+"row.refresh" = "Actualizar"

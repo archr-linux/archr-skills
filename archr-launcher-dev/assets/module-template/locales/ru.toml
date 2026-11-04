@@ -1,0 +1,7 @@
+"tile" = "Работает"
+"title" = "Время работы"
+"section.state" = "Сейчас"
+"section.options" = "Настройки"
+"row.now" = "Включено"
+"row.seconds" = "Показывать секунды"
+"row.refresh" = "Обновить"

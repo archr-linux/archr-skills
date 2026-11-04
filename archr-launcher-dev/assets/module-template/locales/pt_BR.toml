@@ -1,0 +1,7 @@
+"tile" = "Ligado"
+"title" = "Tempo ligado"
+"section.state" = "Agora"
+"section.options" = "Opções"
+"row.now" = "Ligado há"
+"row.seconds" = "Mostrar segundos"
+"row.refresh" = "Atualizar"

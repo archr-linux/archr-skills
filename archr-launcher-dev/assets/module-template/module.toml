@@ -1,0 +1,50 @@
+id = "my-module"
+version = "1.0.0"
+api_version = 2
+min_launcher = "0.1.0"
+name = { en = "Uptime", pt_BR = "Tempo ligado", es = "Tiempo encendido", ru = "Время работы" }
+description = { en = "Shows how long the handheld has been on.", pt_BR = "Mostra há quanto tempo o portátil está ligado.", es = "Muestra cuánto tiempo lleva encendida la consola.", ru = "Показывает, сколько времени устройство включено." }
+author = "Your Name <you@example.org>"
+license = "MIT"
+homepage = "https://github.com/your-github-user/archr-module-my-module"
+icon = "timer"
+
+[run]
+runtime = "sh"
+entry = "main.sh"
+mode = "oneshot"
+
+[limits]
+memory_mb = 8
+
+# No [permissions]: /proc/uptime is readable by every module.
+
+[[hooks]]
+event = "launcher.started"
+
+[[start.tiles]]
+id = "uptime"
+label = "@tile"
+open = "main"
+
+[[settings.pages]]
+id = "main"
+title = "@title"
+
+[[settings.pages.rows]]
+type = "text"
+id = "now"
+label = "@row.now"
+section = "@section.state"
+
+[[settings.pages.rows]]
+type = "toggle"
+key = "seconds"
+label = "@row.seconds"
+section = "@section.options"
+default = false
+
+[[settings.pages.rows]]
+type = "action"
+action = "refresh"
+label = "@row.refresh"

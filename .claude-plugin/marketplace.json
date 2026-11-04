@@ -1,0 +1,17 @@
+{
+  "name": "archr-skills",
+  "owner": {
+    "name": "Douglas Teles",
+    "url": "https://github.com/archr-linux"
+  },
+  "metadata": {
+    "description": "Agent skills for developing ArchR, the Arch Linux distro for RK3326 handhelds."
+  },
+  "plugins": [
+    {
+      "name": "archr",
+      "source": "./",
+      "description": "Build, test and publish archr-launcher themes and modules."
+    }
+  ]
+}

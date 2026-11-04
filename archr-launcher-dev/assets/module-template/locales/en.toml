@@ -1,0 +1,7 @@
+"tile" = "Uptime"
+"title" = "Uptime"
+"section.state" = "Right now"
+"section.options" = "Options"
+"row.now" = "On for"
+"row.seconds" = "Show seconds"
+"row.refresh" = "Refresh"
