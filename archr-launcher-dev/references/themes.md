@@ -32,6 +32,7 @@ github.com/archr-linux/archr-theme-praia and archr-theme-retro.
   fonts/            .ttf/.otf named in theme.toml
   icons/            .svg files that replace built-in icons, same file names
   systems/          console pictures: <system>.png | .jpg | .webp
+  backgrounds/      per-system screen backgrounds: <system>.png | .jpg (screen size)
   sounds/           <event>.ogg | .wav, sounds/systems/<system>.ogg
   images/ frames/ decor/   any folder names you like for theme images
   preview.png       store cover, 640x480 (store only)
@@ -87,7 +88,7 @@ black or white by contrast. Keep `accent_text` readable on `accent`.
 
 ### User options laid over every theme
 
-Appearance also saves six choices in `system.cfg`. None is a `theme.toml` key;
+Appearance also saves several choices in `system.cfg`. None is a `theme.toml` key;
 they apply after the theme is read, so a theme cannot declare or disable them:
 
 | option (`system.cfg`) | values | effect |
@@ -98,6 +99,12 @@ they apply after the theme is read, so a theme cannot declare or disable them:
 | Box art width (`launcher.art_width`) | theme / 35, 40, 45, 50, 55 % of screen width | art keeps its outer edge (away from the list); the list beside it keeps its gap; `meta` follows the art |
 | Box art corners (`launcher.art_radius`) | theme / 0, 6, 12, 20 reference px | overrides the view's `art` `radius`; a coinciding `panel` follows (+1 px) |
 | Switcher background (`launcher.switcher_curtain`) | theme background / 40, 60, 80 % | selected game's picture fills the screen behind the switcher under a `background`-colored curtain at that opacity; no picture keeps the background |
+| Text color (`launcher.text_color`) | theme (empty) / `#RRGGBB` | replaces the theme `text`; `text_secondary` derived (25 % toward `background`) |
+| Selected text color (`launcher.selected_text_color`) | theme (empty) / `#RRGGBB` | replaces `highlight_text` (and `accent_text_secondary`) |
+| Secondary text color (`launcher.secondary_color`) | theme (empty) / `#RRGGBB` | replaces `muted` (and `dim_text`) |
+| Background (`launcher.background`) | theme (empty) / `black` / `midnight` / `#RRGGBB` | custom: `background`, plus `surface`, `surface_elevated`, `border`, `badge` derived by mixing toward white 4/7/12/12 % |
+| Text-only button hints (`launcher.text_hints`) | off (default) / on | footer hints draw the button letter alone in the theme `text` color, no badge circle or `badge` frame; START keeps its word without the box |
+| System background (`launcher.system_background`) | on (default) / off | on a system's games list and details, the screen background is that system's picture (see `backgrounds/` below) |
 
 These override the view's `[view.*].games` `art` rect/radius. Details that
 matter when designing:
@@ -112,6 +119,10 @@ matter when designing:
   when the panel is the art's card, and make title/info work without the art.
 - The curtain is the theme `background`: choose one that works over light and
   dark covers.
+- The three text colors replace `text`, `highlight_text` and `muted` after the
+  theme is read: do not rely on the exact theme colors for legibility
+  decisions. Text-only hints draw in `text`, which must contrast with
+  `background`.
 
 ## 4. Fonts and text
 
@@ -239,6 +250,19 @@ are laid side by side in the image and change `fps` (0..30) times a second
 (still when animations are off). `layer = "back"` draws behind lists and
 panels; default front. A `decor` list replaces the inherited one; `decor = []`
 clears it. The details screen uses the games screen decorations.
+
+### Per-system backgrounds (`backgrounds/`)
+
+New theme feature, no `theme.toml` key. On a system's games list and game
+details, with the System background option on, the screen background is
+`<system>.png` or `.jpg` (system id as in es_systems: `snes`, `gba`, `psx`...).
+Lookup: user folder `/storage/.config/archr-launcher/backgrounds/`, then the
+theme `backgrounds/`, then the default theme `backgrounds/`. Drawn covering the
+screen (cropped to fill) under a curtain of the theme `background` at ~59 %
+opacity (alpha 150); it replaces `background_image` on those screens.
+Collections (`@favorites`, `@recent`) keep the theme background. Pictures are scaled
+to the screen when they load; ship them at screen size (640x480, 720x720 or
+1280x720) so they load fast on the device.
 
 ## 8. Views
 
