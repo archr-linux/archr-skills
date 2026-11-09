@@ -32,7 +32,7 @@ github.com/archr-linux/archr-theme-praia and archr-theme-retro.
   fonts/            .ttf/.otf named in theme.toml
   icons/            .svg files that replace built-in icons, same file names
   systems/          console pictures: <system>.png | .jpg | .webp
-  backgrounds/      per-system screen backgrounds: <system>.png | .jpg (<= 2048 px a side)
+  backgrounds/      per-system screen backgrounds: <system>.png | .jpg (screen size)
   sounds/           <event>.ogg | .wav, sounds/systems/<system>.ogg
   images/ frames/ decor/   any folder names you like for theme images
   preview.png       store cover, 640x480 (store only)
@@ -260,8 +260,9 @@ Lookup: user folder `/storage/.config/archr-launcher/backgrounds/`, then the
 theme `backgrounds/`, then the default theme `backgrounds/`. Drawn covering the
 screen (cropped to fill) under a curtain of the theme `background` at ~59 %
 opacity (alpha 150); it replaces `background_image` on those screens.
-Collections (`@favorites`, `@recent`) keep the theme background. Pictures over
-2048 px on a side are refused: ship them at screen size (640x480 or 1280x720).
+Collections (`@favorites`, `@recent`) keep the theme background. Pictures are scaled
+to the screen when they load; ship them at screen size (640x480, 720x720 or
+1280x720) so they load fast on the device.
 
 ## 8. Views
 

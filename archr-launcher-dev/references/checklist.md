@@ -38,8 +38,8 @@ PC test
       and 20, Bold weight, battery percentage off, switcher background at 40 %
       and 80 % (readable over light and dark covers), text-only button hints,
       custom text and background colours (legible, `text_secondary` derived
-      sensibly), and a system background (`backgrounds/<system>.png`, at most
-      2048 px a side, text readable under the curtain).
+      sensibly), and a system background (`backgrounds/<system>.png`, at screen
+      size for fast loading, text readable under the curtain).
 - [ ] `cargo test -p archr-ui --test resolutions` passes with the theme
       copied into the launcher's `themes/` (removed again afterwards).
 - [ ] No "Unknown theme key" / "Invalid theme field" warnings for your keys.
