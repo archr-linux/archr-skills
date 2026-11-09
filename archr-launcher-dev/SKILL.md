@@ -1,12 +1,16 @@
 ---
 name: archr-launcher-dev
-description: Build, test and publish themes and modules for archr-launcher, the Rust + SDL2 front end (640x480) of ArchR, the Arch Linux distro for RK3326 handhelds such as the R36S. Use this skill whenever someone wants to create or change an ArchR theme (theme.toml, colors, fonts, views/layouts, 9-slice frames, decorations, sounds, console art), write an archr-launcher module (module.toml, JSON-RPC over stdin/stdout, Start menu tiles, widgets, Y-menu items, settings pages, permissions, launch.before), debug why a theme key or module is ignored, or publish to the in-launcher Theme store or Module store (GitHub topics archr-launcher-theme / archr-launcher-module, releases, assets). Trigger even when the user just says "ArchR theme", "tema do ArchR", "R36S launcher skin", "module for the launcher" or "módulo do archr-launcher".
+description: Build, test and publish themes and modules for archr-launcher, the Rust + SDL2 front end of ArchR (640x480 reference design, also on 720x720 square and 480x320 screens), the Arch Linux distro for RK3326 handhelds such as the R36S. Use this skill whenever someone wants to create or change an ArchR theme (theme.toml, colors, fonts, views/layouts, 9-slice frames, decorations, sounds, console art, [aspect.square|classic|wide] layouts for other screen sizes), write an archr-launcher module (module.toml, JSON-RPC over stdin/stdout, Start menu tiles, widgets, Y-menu items, settings pages, permissions, launch.before), debug why a theme key or module is ignored, or publish to the in-launcher Theme store or Module store (GitHub topics archr-launcher-theme / archr-launcher-module, releases, assets). Trigger even when the user just says "ArchR theme", "tema do ArchR", "R36S launcher skin", "module for the launcher" or "módulo do archr-launcher".
 ---
 
 # archr-launcher themes and modules
 
-archr-launcher draws every screen of an ArchR handheld at a 640×480 reference
-resolution. Third parties extend it in two ways, and neither runs code inside
+archr-launcher draws every screen of an ArchR handheld from a 640×480
+reference design, scaled to fit the real screen: 640×480 (R36S and most
+RK3326 handhelds), 720×720 (R36 Plus) and 480×320 (Odroid Go Advance, RGB10,
+RG351M); a 16:9 screen takes the 3:2 layout. A theme can change its layout per screen
+shape with `[aspect.square]`, `[aspect.classic]` and `[aspect.wide]` tables.
+Third parties extend it in two ways, and neither runs code inside
 the launcher:
 
 - A **theme** is a folder of data: `theme.toml` plus optional fonts, images,
@@ -39,8 +43,8 @@ Starting points that pass validation: `assets/theme-template/` and
 
 `scripts/precheck.py <folder>` (Python 3.11+) is a static check. For themes it
 reports unknown keys, top-level keys trapped inside a table, pixel values,
-off-screen fixed rectangles, missing files, file types the store drops, sound
-sizes, missing languages in names, and the preview size. For modules it
+off-screen fixed rectangles, misnamed or misused `[aspect.*]` tables,
+missing files, file types the store drops, sound sizes, missing languages in names, and the preview size. For modules it
 reports the fatal manifest errors, missing locale keys, unquoted dotted locale
 keys, extension-point limits, and icons that differ from Lucide (it downloads
 them to compare; `--offline` skips that). It does not render anything or run
@@ -49,16 +53,19 @@ the module: the launcher's own checks below still decide.
 ## Workflow
 
 Every theme or module goes through the same four stages. Do not skip the
-device stage: the PC cannot reproduce the sandbox, the real fonts at 480 px,
-the gamepad or the R36S speed.
+device stage: the PC cannot reproduce the sandbox, how the real screen
+reads, the gamepad or the R36S speed.
 
 1. **Create** from the template. Keep the folder name equal to the module
    `id` (modules) or a short lowercase name (themes). Write user-facing text
    in the four languages the launcher ships: `en` (required, the fallback),
    `pt_BR`, `es` and `ru`.
 2. **Test on the PC.**
-   - Theme: render it with the launcher's capture test (exact command in
-     `references/themes.md`, "Test on a PC") and look at the PNGs.
+   - Theme: render it with the launcher's capture test at 640x480, 720x720
+     and 480x320 (`ARCHR_CAPTURE_SIZE`; exact commands in
+     `references/themes.md`, "Test on a PC"), look at the PNGs of every size,
+     and run the `resolutions` test with the theme copied into the
+     launcher's `themes/`.
    - Module: run `archr-launcher --check-module <folder>` (exit 0 = valid),
      then pipe JSON lines into the entry script by hand and read its stdout.
 3. **Test on the device.** Enable SSH on the handheld (Settings › Network ›
@@ -95,8 +102,20 @@ the gamepad or the R36S speed.
   (a new widget type, a free-form drawing, a permission that does not exist),
   say it is not available instead of inventing a key; the launcher would
   silently ignore it or refuse the module.
-- Positions and sizes in themes are **screen fractions**, not pixels:
-  x and w of 640, y and h of 480. Convert with px/640 and px/480.
+- Theme numbers are fractions, never pixels, of two kinds. **Sizes**
+  (`font_size`, row/header/footer heights, radii, `margin`, list `row`,
+  `font`) are fractions of a 480 px reference height and keep their
+  reference size on every screen. **Rectangles** (`x y w h`) are fractions
+  of the screen and stretch with it. At 640×480 convert with px/640 and
+  px/480; a square 720×720 screen is 640×640 reference px, 480×320 is
+  720×480.
+- A layout that looks right at 640×480 can break on a square or 3:2 screen.
+  Check every theme at the three sizes, and fix a shape with its
+  `[aspect.<shape>]` table rather than the top-level values, which apply
+  to every screen.
+- No text is ever drawn under 10 screen px, whatever `font_min` or
+  `font_scale` say; on 480×320 that is 15 reference px, so small text there
+  takes more room than at 640×480.
 - In TOML, every top-level key must come before the first `[table]` header,
   or it lands inside that table and is ignored. This is the most common
   theme bug.
