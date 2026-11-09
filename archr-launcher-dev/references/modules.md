@@ -1,4 +1,4 @@
-# Modules reference (API 2)
+# Modules reference (API 1 to 4)
 
 Source of truth: `docs/modulos.md`,
 `crates/archr-launcher/src/modules/manifest.rs` (the validator) and
@@ -6,8 +6,10 @@ Source of truth: `docs/modulos.md`,
 examples: github.com/archr-linux/archr-module-bateria-detalhada (daemon) and
 archr-module-perfil-cpu (oneshot).
 
-API 2 is the newest API the launcher runs; `api_version = 1` modules still
-run. Do not use anything not listed here.
+API 4 (apps, section 14) is the newest API the launcher runs; modules of
+lower `api_version` still run. Sections 1 to 13 describe API 1 and 2; use
+nothing from API 3 or 4 unless section 14 lists it, and only with
+`api_version = 4`.
 
 ## Contents
 
@@ -24,6 +26,7 @@ run. Do not use anything not listed here.
 11. Test on the device
 12. Publish to the Module store
 13. Pitfalls
+14. Apps (API 4)
 
 ## 1. Package layout
 
@@ -508,3 +511,215 @@ with the link to your module's release.
   permission.
 - Tag `v1.0.0` with `version = "1.0.1"` in the manifest → `modules.bad_tag`.
 - Repacking with `tar` from inside the folder → no `<id>/` prefix → refused.
+
+## 14. Apps (API 4)
+
+Source: `docs/modulos.md` section 10 and `examples/modules/catalogo-demo` in
+the launcher; real app: github.com/archr-linux/archr-module-itchio.
+
+A module with `api_version = 4` can have **one app**: its own carousel item
+that opens full screens (catalog, detail, search) and can install games and
+ports into the library. The module describes; the launcher draws, with the
+theme's `games` and `details_*` layouts, at 640×480, 720×720 and 480×320.
+
+### Manifest
+
+```toml
+api_version = 4
+[run]
+mode = "daemon"            # required for apps
+[app]
+label = "@app.name"        # default: module name
+subtitle = "@app.subtitle"
+icon = "store"             # Lucide, intact SVG in icons/
+art = "art.png"            # optional PNG/JPEG/WebP in the package, <= 1 MiB
+home = "catalog"           # id of the first screen (required to run)
+[permissions]
+install = ["gb", "gbc", "ports"]   # system folders and/or "ports"
+launch = true                      # "Play" after installing
+```
+
+- One `[app]` per module. With api_version < 4, `[app]` is ignored with a
+  warning and `install` is an error. `oneshot` or no `home`: no app.
+- `install` systems are checked against the system catalog at install time.
+  Always refused (already at the manifest): `tools`, `windows`, `setup`,
+  `shell`, `moonlight`, `music`, `idtech`, `scummvm`, `j2me`. Only emulated
+  systems (run through `runemu.sh`) are accepted.
+- The store shows "Has its own screens" and "Installs games in: ..." (amber)
+  before install. The carousel row is `@app:<id>`; art lookup: user/theme
+  `systems/app-<id>.png`, the module's `art`, the large icon.
+- Summary text (carousel and panel): `ui.update` with
+  `target:"app:summary"`, `value:<text or {key,args}>`.
+
+### Lifecycle
+
+- A on the item opens the app at once with a wait indicator and only B
+  until the first `screen.show`; 30 s without one shows "not responding".
+- The app process is the same sandbox with `ARCHR_MODULE_ROLE=app`,
+  `MemoryMax=96M`, `TasksMax=32`, outside the 3-daemon limit, one app at a
+  time. `initialize` has `role:"app"`; after `{"ready":true}` the launcher
+  sends `screen.opened {screen:"<home>"}`.
+- A module with only `[app]` has no resident daemon. With tiles, widgets or
+  events there are two processes; both get `settings.changed`.
+- It ends (`shutdown`, 500 ms, kill) on B at the first screen, when a game
+  opens, on suspend/power off and when the launcher closes. Never restarted;
+  an error exit counts as a failure. START opens the module's Settings pages.
+
+### Screens (module to launcher, notifications)
+
+| method | params |
+|---|---|
+| `screen.show` | `{id, title, layout:"collection"\|"detail", ...}` |
+| `screen.patch` | `{screen?, append?, more?, chips?, footer?, target?, ...}` |
+| `screen.toast` | `{text, tone?}` |
+| `screen.confirm` | `{id, text, yes?, no?}`; reply `screen.answer` |
+| `screen.busy` | `{text}`; `{text:null}` clears |
+| `screen.offline` | `{text?}`; `{text:null}` clears |
+
+- Collection: `chips` (<= 8 `{id,label,selected}`), `items` (<= 50 per
+  message, 1000 per screen: `{id,title,subtitle?,badge?,tone?,image?}`),
+  `more`, `buttons:{x?,y?:{label,action}}`, `footer`. `tone`: good, info, bad,
+  muted.
+- Detail: `image`, `gallery` (<= 8), `subtitle`, `facts` (<= 8
+  `{title,value,tone?}`), `text` (<= 4000 chars), `buttons` (<= 4
+  `{id,label,icon?,action,progress?}`).
+- `show` with an id already on the stack replaces it in place; a new id goes
+  on top (max 8). `patch target`: `"item:<id>"` or `"button:<id>"`
+  (`progress:null` removes the bar). At most 4 shows/patches per second; over
+  256 queued are dropped; only the last of several toasts shows.
+- Ids and action names: 1 to 128 chars, no control characters.
+- Texts: `@key` or `{key,args}`; any other text is plain, no markup.
+- **Pictures** (`image`, `gallery`): relative paths inside the module's
+  `HOME` only. Refused: `..`, absolute paths, any symlink, hard links, > 4 MiB,
+  not PNG/JPEG/WebP. Only the pictures on screen are read; the launcher
+  copies and decodes its own copy. An item may get its `image` later with
+  `screen.patch {screen, target:"item:<id>", image}`.
+
+### What the app hears
+
+`screen.opened {screen}`, `screen.select {screen,item}`, `screen.chip
+{screen,chip}`, `screen.more {screen,count}` (5 items from the end, once per
+`append`), `screen.search {screen,text}` (SELECT keyboard, <= 64 bytes),
+`screen.answer {id,yes}`, `screen.back {screen}`, `screen.visible
+{screen,from,to}` (150 ms after the window stops; in a detail `from == to`
+is the shown picture), `port.progress {name,progress}`. Module buttons come
+as `action.invoke` with `context:{screen,item?}` (X/Y on a collection) or
+`{screen,button}`.
+
+### Installing and removing
+
+| method | params | result |
+|---|---|---|
+| `rom.install` | `{system,file,name?,cover?,meta?:{developer,description,year}}` | `{game_key}` |
+| `rom.list` | `{}` | `{games:[{game_key,system,size,date}],used,limit}` |
+| `rom.remove` | `{game_key}` | `{removed}` |
+| `port.install` | `{name}` | `{game_key}` |
+| `port.list` / `port.remove` | `{}` / `{name}` | `{ports:[...]}` / `{removed}` |
+
+Security rules the launcher enforces:
+
+- **User action first.** Each A/X/Y on an app screen (`action.invoke`) allows
+  one install in the next 5 s; otherwise `-32001`. Download first, install on
+  a separate "Install" button.
+- `file` is inside `HOME`, <= 64 MiB, with an extension of the system and not
+  one the device executes (`.sh .bash .run .appimage .desktop .py .pl .jar`).
+- `cover` that is not a valid image is dropped; the game still installs.
+- Quota 2 GiB per module (games and ports together): `-32003`. One copy at a
+  time, one `rom.install` per second.
+- Removal only of what the module installed (`-32001`). The launcher asks the
+  user itself ("Remove <name>?", Cancel focused); the module never hears it
+  and a module `screen.confirm` cannot hide it. The reply is `{removed}`.
+- `port.install`: `name` matches `^[a-z0-9][a-z0-9._-]*\.zip$` and is in the
+  PortMaster catalog. The launcher runs `/usr/bin/archr-port-install`; it never
+  accepts port files from the module. One at a time, up to 15 min,
+  `port.progress` while it runs. `game.launch` works for a port the module
+  installed (`system:"ports"`).
+- The module never reads the ROM folder or the library; `rom.list` and
+  `port.list` return only what it installed and still exists.
+
+Error codes: `-32001` not allowed, `-32602` bad params, `-32003` quota,
+`-32004` not found, `-32005` port already installed, `-32000` other (last
+script error line), `-32601` unknown method (`screen.qr` does not exist yet:
+carry on without it).
+
+### Minimal app (sh + jq), from catalogo-demo
+
+`module.toml` (plus `icons/gamepad-2.svg` from Lucide and `locales/en.toml`
+with `app.name`, `app.subtitle`, `title`, `get`, `installed`):
+
+```toml
+id = "mini-catalog"
+version = "1.0.0"
+api_version = 4
+name = { en = "Mini catalog" }
+description = { en = "One test game the app installs into Game Boy." }
+author = "You <you@example.com>"
+license = "MIT"
+icon = "gamepad-2"
+
+[run]
+runtime = "sh"
+entry = "main.sh"
+mode = "daemon"
+
+[app]
+label = "@app.name"
+subtitle = "@app.subtitle"
+icon = "gamepad-2"
+home = "catalog"
+
+[permissions]
+install = ["gb"]
+launch = true
+```
+
+`main.sh`:
+
+```sh
+#!/bin/sh
+# One item, one detail screen, install on a button press.
+send() { printf '%s\n' "$1"; }
+reply() { send "{\"jsonrpc\":\"2.0\",\"id\":$1,\"result\":$2}"; }
+NEXT=10; WAIT=""
+show_catalog() {
+    send '{"jsonrpc":"2.0","method":"screen.show","params":{"id":"catalog","title":"@title","layout":"collection","items":[{"id":"demo","title":"Demo cartridge","subtitle":"Game Boy"}]}}'
+}
+show_detail() {
+    send '{"jsonrpc":"2.0","method":"screen.show","params":{"id":"game:demo","title":"Demo cartridge","layout":"detail","text":"A 32 KiB test cartridge.","buttons":[{"id":"get","label":"@get","icon":"download","action":"get"}]}}'
+}
+while IFS= read -r line; do
+    eval "$(printf '%s' "$line" | jq -r '@sh "id=\(.id // "null") method=\(.method // "") action=\(.params.action // "") failed=\(.error.message // "")"')" || continue
+    case $method in
+        initialize) mkdir -p "$HOME/downloads"; reply "$id" '{"ready":true}' ;;
+        shutdown) reply "$id" '{}'; exit 0 ;;
+        screen.opened) show_catalog ;;
+        screen.select) show_detail ;;
+        action.invoke)
+            reply "$id" '{}'
+            if [ "$action" = get ]; then
+                head -c 32768 /dev/zero >"$HOME/downloads/demo.gb"
+                NEXT=$((NEXT + 1)); WAIT=$NEXT
+                send "{\"jsonrpc\":\"2.0\",\"id\":$NEXT,\"method\":\"rom.install\",\"params\":{\"system\":\"gb\",\"file\":\"downloads/demo.gb\",\"name\":\"Demo cartridge\"}}"
+            fi ;;
+        "")  # a reply to our own request
+            [ "$id" = "$WAIT" ] || continue
+            if [ -n "$failed" ]; then
+                send "$(jq -cn --arg t "$failed" '{jsonrpc:"2.0",method:"screen.toast",params:{text:$t,tone:"bad"}}')"
+            else
+                send '{"jsonrpc":"2.0","method":"screen.toast","params":{"text":"@installed","tone":"good"}}'
+            fi ;;
+        *) [ "$id" = null ] || send "{\"jsonrpc\":\"2.0\",\"id\":$id,\"error\":{\"code\":-32601,\"message\":\"$method\"}}" ;;
+    esac
+done
+```
+
+The install request is sent right inside the `action.invoke` of the button,
+so the user-action window is open. Test on a PC with
+`sh examples/modules/catalogo-demo.test.sh` for the full demo, and pipe
+`initialize`, `screen.opened`, `screen.select` and `action.invoke` by hand to
+your own script. Installing really needs the device.
+
+App pitfalls: a first screen that waits on the network (show a screen at once,
+fill it with `patch`); sending every cover at once (use `screen.visible`);
+an install request fired after the 5 s window; relying on `screen.confirm` to
+remove (the launcher asks itself).

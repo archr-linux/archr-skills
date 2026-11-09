@@ -1,6 +1,6 @@
 ---
 name: archr-launcher-dev
-description: Build, test and publish themes and modules for archr-launcher, the Rust + SDL2 front end of ArchR (640x480 reference design, also on 720x720 square and 480x320 screens), the Arch Linux distro for RK3326 handhelds such as the R36S. Use this skill whenever someone wants to create or change an ArchR theme (theme.toml, colors, fonts, views/layouts, 9-slice frames, decorations, sounds, console art, [aspect.square|classic|wide] layouts for other screen sizes), write an archr-launcher module (module.toml, JSON-RPC over stdin/stdout, Start menu tiles, widgets, Y-menu items, settings pages, permissions, launch.before), debug why a theme key or module is ignored, or publish to the in-launcher Theme store or Module store (GitHub topics archr-launcher-theme / archr-launcher-module, releases, assets). Trigger even when the user just says "ArchR theme", "tema do ArchR", "R36S launcher skin", "module for the launcher" or "módulo do archr-launcher".
+description: Build, test and publish themes and modules for archr-launcher, the Rust + SDL2 front end of ArchR (640x480 reference design, also on 720x720 square and 480x320 screens), the Arch Linux distro for RK3326 handhelds such as the R36S. Use this skill whenever someone wants to create or change an ArchR theme (theme.toml, colors, fonts, views/layouts, 9-slice frames, decorations, sounds, console art, [aspect.square|classic|wide] layouts for other screen sizes), write an archr-launcher module (module.toml, JSON-RPC over stdin/stdout, Start menu tiles, widgets, Y-menu items, settings pages, permissions, launch.before, apps with screens and rom.install, art systems/app-<id>.png), debug why a theme key or module is ignored, or publish to the in-launcher Theme store or Module store (GitHub topics archr-launcher-theme / archr-launcher-module, releases, assets). Trigger even when the user just says "ArchR theme", "tema do ArchR", "R36S launcher skin", "module for the launcher" or "módulo do archr-launcher".
 ---
 
 # archr-launcher themes and modules
@@ -20,7 +20,8 @@ the launcher:
   that the launcher starts in a systemd sandbox and talks to with JSON-RPC 2.0,
   one JSON object per line on stdin/stdout. The module *declares* in
   `module.toml` what it adds (Start tiles, a Start widget, a Y-menu item,
-  settings pages, event hooks) and the launcher draws it. A module never draws
+  settings pages, event hooks, and since API 4 an app with its own screens that
+  can install games) and the launcher draws it. A module never draws
   pixels, never reads the gamepad and never runs as root.
 
 The launcher validates both leniently: unknown keys and bad values are logged
@@ -128,4 +129,4 @@ reads, the gamepad or the R36S speed.
 - In TOML, every top-level key must come before the first `[table]` header,
   or it lands inside that table and is ignored. This is the most common
   theme bug.
-- Modules API 2 is the current API. Do not use features of any later API.
+- Modules API 4 (apps) is the current API. `[app]` and `permissions.install` need `api_version = 4`; lower versions ignore or refuse them.
