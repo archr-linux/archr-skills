@@ -199,6 +199,10 @@ def check_theme(folder: Path):
             continue
         if p.suffix.lower().lstrip(".") not in KEPT and p.name not in ("LICENSE", "LICENCE", "COPYING"):
             warnings.append(f"{rel}: the store does not install this file type")
+        if rel.parts[0] == "backgrounds" and p.suffix.lower() == ".png":
+            size = png_size(p)
+            if size and max(size) > 2048:
+                warnings.append(f"{rel}: {size[0]}x{size[1]}; the launcher refuses pictures over 2048 px a side")
         if rel.parts[0] == "sounds" and p.stat().st_size > 1 << 20:
             errors.append(f"{rel}: sounds must be at most 1 MiB")
     check_preview(folder, required=True)

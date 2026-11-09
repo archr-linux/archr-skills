@@ -42,7 +42,10 @@ Starting points that pass validation: `assets/theme-template/` and
 `assets/module-template/`. Copy one, rename, then edit.
 
 Users can also change appearance on top of any theme (font weight, battery
-percentage, box art on/off/width/corners, switcher background). Those are
+percentage, box art on/off/width/corners, switcher background, text and
+background colours, text-only button hints, per-system background). A theme can
+ship `backgrounds/<system>.png|jpg` for the last one (`references/themes.md`
+section 7). Those are
 `system.cfg` options, not theme keys: design the games screen so it still works
 with the art off or wider, and test with them (`references/themes.md` section
 3, checklist).
