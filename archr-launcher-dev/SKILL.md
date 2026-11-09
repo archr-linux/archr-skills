@@ -41,6 +41,12 @@ Read only what the task needs:
 Starting points that pass validation: `assets/theme-template/` and
 `assets/module-template/`. Copy one, rename, then edit.
 
+Users can also change appearance on top of any theme (font weight, battery
+percentage, box art on/off/width/corners, switcher background). Those are
+`system.cfg` options, not theme keys: design the games screen so it still works
+with the art off or wider, and test with them (`references/themes.md` section
+3, checklist).
+
 `scripts/precheck.py <folder>` (Python 3.11+) is a static check. For themes it
 reports unknown keys, top-level keys trapped inside a table, pixel values,
 off-screen fixed rectangles, misnamed or misused `[aspect.*]` tables,
