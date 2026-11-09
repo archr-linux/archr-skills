@@ -1,7 +1,8 @@
 # Themes reference
 
 Source of truth: `docs/temas.md`, `crates/archr-ui/src/theme.rs`,
-`crates/archr-ui/src/layout.rs` and `crates/archr-ui/src/settings/store.rs`
+`crates/archr-ui/src/layout.rs`, `crates/archr-ui/src/settings/store.rs`
+and `crates/archr-ui/tests/resolutions.rs`
 in github.com/archr-linux/archr-launcher. Published examples:
 github.com/archr-linux/archr-theme-praia and archr-theme-retro.
 
@@ -16,11 +17,12 @@ github.com/archr-linux/archr-theme-praia and archr-theme-retro.
 7. Theme images: background, 9-slice frames, text outline, decorations
 8. Views (systems and games screens)
 9. Fixed-screen rectangles (details, achievements, saves, switcher...)
-10. Icons, console art, sounds
-11. Test on a PC
-12. Test on the device
-13. Publish to the Theme store
-14. Pitfalls
+10. Screen sizes and `[aspect.*]` tables
+11. Icons, console art, sounds
+12. Test on a PC
+13. Test on the device
+14. Publish to the Theme store
+15. Pitfalls
 
 ## 1. Folder layout and inheritance
 
@@ -97,6 +99,14 @@ font_smoothing = true  # false = hard-edged glyphs, for pixel fonts
 font_min = 8           # 6..32 px; nothing smaller, what does not fit wraps
 ```
 
+`font_min` and `font_grid` are reference px (of the 480 px height) and scale
+with the screen. Over them sits a fixed floor of **10 screen px** that no
+theme key, `font_scale` or user text size can lower: on a 480×320 screen
+that is 15 reference px, so any smaller size is drawn at 10 screen px and
+takes more room than it does at 640×480. Start tile labels may go 2
+reference px under `font_min` (never under 8), still above the floor. The
+ceiling is 128 screen px.
+
 Families come whole: naming `font` or `font_semibold` replaces both (the
 regular one stands in for a missing semibold); naming neither inherits both.
 Same for `font_mono` + `font_mono_medium`. A named font file that does not
@@ -105,8 +115,17 @@ Check that the font covers Cyrillic and Latin accents if you ship `ru`/`pt_BR`/`
 
 ## 5. Global geometry
 
-Heights, radii and font sizes are fractions of the **height** (480 px);
-widths and x are fractions of the **width** (640 px). Values must be > 0 and <= 1.
+Two kinds of number, both fractions (> 0 and <= 1):
+
+- **Sizes** (fonts, row/header/footer heights, radii, `margin`, and in
+  views `row`, `selected`, `gap`, `font`, `radius`) are fractions of a
+  **480 px reference height**: 0.035416667 = 17 px. They keep their
+  reference size on every screen.
+- **Rectangles** (`cover`, `x y w h` in views and the fixed-screen
+  rectangles) are fractions of the **screen**: x and w of its width, y and
+  h of its height. They stretch with the screen.
+
+At 640×480 both read as px/480 and px/640. On other screens see section 10.
 
 ```toml
 font_size = 0.035416667      # 17 px
@@ -302,15 +321,95 @@ switcher_side = { x = 0.046875, y = 0.129166667, w = 0.375, h = 0.375 }  # w,h,y
 switcher_info = { x = 0.0, y = 0.758333333, w = 1.0, h = 0.125 }
 resume_shot = { x = 0.25, y = 0.110416667, w = 0.5, h = 0.5 }
 resume_info = { x = 0.0, y = 0.6375, w = 1.0, h = 0.258333333 }
+# Start menu: the box its 640x480 composition is centered in (section 10)
+start_area = { x = 0.0, y = 0.0, w = 1.0, h = 1.0 }
 ```
+
+`start_widgets` is a fraction of the Start menu's 640×480 composition (x of
+640, y of 480), not of the screen; `start_area` places that composition.
 
 Colors on these screens come from the general color keys. Text never gets
 ellipsized: it shrinks and wraps; table rows that do not fit are omitted.
 
 Fixed layouts a theme cannot move: Settings (only colors, fonts and icons
-apply there) and the ROM migration screen (always the default theme).
+apply there; 640 reference px wide, centered on wider screens, more rows on
+taller ones) and the ROM migration screen (always the default theme).
 
-## 10. Icons, console art, sounds
+## 10. Screen sizes and `[aspect.*]` tables
+
+The 640×480 design is scaled by `min(width/640, height/480)` so it fits
+whole; the spare room goes to the longer side.
+
+| screen | devices | scale | reference px | shape |
+|---|---|---|---|---|
+| 640×480 | R36S, most RK3326 handhelds | 1 | 640×480 | `classic` |
+| 720×720 | R36 Plus | 1.125 | 640×640 | `square` |
+| 480×320 | Odroid Go Advance, RGB10, RG351M (portrait panel turned by Sway) | 0.667 | 720×480 | `wide` |
+| 854×480 | 16:9 | 1 | 854×480 | `wide` |
+| 1280×720 | 16:9 | 1.5 | 853×480 | `wide` |
+
+Shape from width/height: `square` below 1.2 (6:5), `classic` 1.2 to 1.45
+(29:20) inclusive, `wide` above 1.45. Code: `Aspect::of` in
+`crates/archr-ui/src/theme.rs`.
+
+Consequences with no `[aspect]` table at all: sizes keep their reference px,
+so a square screen shows more list rows of the same height (Grafite: 10
+game rows at 640×480, at least 13 at 720×720); rectangles stretch, so a
+portrait cover gets taller and narrower; the built-in `lista` geometry
+(250 px system panel, margins) is computed in reference px for the real
+screen and does not stretch.
+
+`[aspect.square]`, `[aspect.classic]`, `[aspect.wide]` hold any top-level
+key, including `[view.*]`, `frames`, `background_image`, `text_outline`,
+`font_size`, `font_scale`, `font_min`, and every rectangle. The matching
+table is laid over its own file key by key: tables (views and their
+elements) merge field by field, other values replace; a top-level rectangle
+(`cover`, `details_*`, `switcher_*`, `start_area`...) replaces whole, so give
+all four fields. Other names (`[aspect.tall]`) are ignored with a warning.
+
+```toml
+# ...all top-level keys first...
+
+[aspect.square]
+switcher_card = { x = 0.1875, y = 0.1, w = 0.625, h = 0.46875 }
+start_area = { x = 0.0, y = 0.1796875, w = 1.0, h = 0.75 }
+
+[aspect.square.view.lista.games]
+list = { w = 0.5 }
+art = { x = 0.55, w = 0.4, h = 0.7 }
+
+[aspect.wide]
+font_size = 0.039583333   # 19 reference px = 13 px on 480x320
+```
+
+Merge order: default theme, the default's `[aspect.<shape>]`, the theme,
+the theme's `[aspect.<shape>]`. So:
+
+- A theme with no `[aspect]` table inherits Grafite's. Grafite's
+  `[aspect.square]`: 4:3 switcher and resume pictures, the Start menu
+  centered between header and footer (`start_area`), `list_width = 0.5`
+  with `cover = { x = 0.555, y = 0.1125, w = 0.41, h = 0.583333333 }`,
+  details picture and table sharing the column, console art centered in
+  the systems panel, a wider `vitrine` cover. Grafite's `[aspect.wide]`:
+  `font_size = 0.039583333` and `vitrine` games list `font = 0.0375`.
+- A top-level key in the theme beats the default's aspect value for every
+  shape. A theme that sets `cover` or `list_width` at the top level loses
+  Grafite's square cover and list; it needs its own `[aspect.square]`
+  (Praia: `[aspect.square.view.lista.games]` with list, panel, art and meta).
+- Font files (`font`, `font_semibold`, `font_mono`, `font_mono_medium`),
+  `name`, sounds, icons and console pictures do not change per shape.
+
+**Text floor**: no text under 10 screen px at any size (section 4). The
+only exception is the MangoHud preview miniature in Settings.
+
+**`start_area`** (`{ x, y, w, h }`, screen fractions, default the whole
+screen): the box the Start menu composition (title, tiles, shortcuts,
+widgets) is centered in. The composition is 480 reference px tall and as
+wide as the box; tiles may reach its edges; the footer stays at the bottom
+of the screen. Keep it at least 480 reference px tall (on 720×720, `h =
+0.75`) or the composition is squeezed.
+
+## 11. Icons, console art, sounds
 
 **Icons**: `icons/<name>.svg` replaces the built-in icon of the same file name
 (the names are those in `themes/default/icons/` of the launcher repository,
@@ -341,7 +440,7 @@ snes = "sounds/jingle.ogg"
 nes = ""
 ```
 
-## 11. Test on a PC
+## 12. Test on a PC
 
 The launcher repository has a capture test that renders the real UI offscreen
 with your theme and saves PNGs (systems, games with and without cover, game
@@ -358,10 +457,38 @@ ARCHR_CAPTURE_VIEWS=/abs/path/to/mytheme:lista,/abs/path/to/mytheme:vitrine,/abs
 cargo test -p archr-ui --lib capture_views -- --ignored
 ```
 
+Every screen size, one folder each (file names do not carry the size):
+
+```sh
+for size in 640x480 720x720 480x320; do
+  mkdir -p /tmp/captures/$size
+  ARCHR_CAPTURE_SIZE=$size \
+  ARCHR_SETTINGS_CAPTURE_DIR=/tmp/captures/$size \
+  ARCHR_SETTINGS_CAPTURE_LANGUAGES=en,pt_BR,es,ru \
+  ARCHR_CAPTURE_VIEWS=/abs/path/to/mytheme:lista,/abs/path/to/mytheme:vitrine \
+  cargo test -p archr-ui --lib capture_views -- --ignored
+done
+```
+
+Layout fit at every size: the `resolutions` integration test loads every
+folder with a `theme.toml` in the clone's `themes/` and checks each view at
+640×480, 720×720 and 480×320 (list under the header, everything on screen,
+panel/art/info/meta/dots clear of the list, details, saves, switcher and
+resume rectangles not overlapping). Copy the theme in, run it, take it out:
+
+```sh
+cp -r /abs/path/to/mytheme themes/mytheme
+cargo test -p archr-ui --test resolutions
+rm -r themes/mytheme
+```
+
 - `ARCHR_CAPTURE_VIEWS` is a comma list of `folder:view[:noart]`. The folder is
   relative to the repository's `themes/` or absolute. `:noart` renders as if
   no console pictures existed.
 - `ARCHR_SETTINGS_CAPTURE_LANGUAGES` defaults to `pt_BR,ru`.
+- `ARCHR_CAPTURE_SIZE` (`<width>x<height>`) defaults to `640x480`; any size
+  works (`854x480` for 16:9). The other manual captures in `archr-ui`
+  (settings, achievements, resume, status bar) read it too.
 - Run it from the root of the launcher clone. With a warm build cache it
   takes about 20 s; the first build takes minutes. `CARGO_TARGET_DIR` may
   point anywhere.
@@ -376,16 +503,18 @@ cargo test -p archr-ui --lib capture_views -- --ignored
   keys and misplaced tables.
 - A capture of the systems or games screen makes a good `preview.png`.
 
-## 12. Test on the device
+## 13. Test on the device
 
 Copy the folder to `/storage/.config/archr-launcher/themes/<name>/` (scp over
 SSH, or the SD card's STORAGE partition), then Settings › Appearance › Theme,
 and Appearance › View for each view you define. Leaving the Appearance page
-applies it; no restart. Check: readability on the 3.5" screen, every view,
+applies it; no restart. Check: readability on the device's real screen
+(640×480, 720×720 or 480×320; the captures of the other sizes stand in for
+the screens the user does not have), every view,
 the details screen, Start menu, Settings colors, sounds and speed of
 animated decorations.
 
-## 13. Publish to the Theme store
+## 14. Publish to the Theme store
 
 The store (Settings › Appearance › Theme store) searches GitHub for
 `topic:archr-launcher-theme archived:false`, 30 results, by stars or by update.
@@ -440,7 +569,7 @@ The store reads the card's name and `preview.png` from the **default branch**,
 but details and installation come from the **latest release**. Keep them in
 sync: push to the default branch, then release.
 
-## 14. Pitfalls
+## 15. Pitfalls
 
 - Top-level keys written after a `[view...]`, `[frames...]` or `[sounds]`
   header end up inside that table and are ignored. Put all top-level keys
@@ -462,3 +591,14 @@ sync: push to the default branch, then release.
 - The store folder is `<owner>-<repo>`, not your local folder name; never
   depend on the folder name.
 - Unknown keys never fail loudly. Verify every change in a capture.
+- A top-level key written after `[aspect.square]` lands inside it and only
+  applies on square screens. Aspect tables go last, like every table.
+- A layout tuned only at 640×480: on 720×720 rectangles stretch (portrait
+  covers float in a tall box) and on 480×320 the 10 px text floor makes
+  small text bigger. Capture all three sizes; fix a shape in its
+  `[aspect.<shape>]` table.
+- Setting `cover` or `list_width` at the top level drops the default
+  theme's square layout for them; add your own `[aspect.square]`.
+- Font files, `name` and sounds inside `[aspect.*]` have no effect.
+- Shape bounds are strict: a ratio of exactly 1.2 (6:5) or exactly 1.45
+  is `classic`.

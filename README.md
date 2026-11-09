@@ -5,7 +5,7 @@ Arch Linux distro for RK3326 handhelds such as the R36S.
 
 | Skill | What it teaches |
 |---|---|
-| [`archr-launcher-dev`](archr-launcher-dev/SKILL.md) | Create, test and publish themes and modules for archr-launcher (Rust + SDL2, 640×480): `theme.toml`, views, frames, sounds, `module.toml`, the JSON-RPC protocol, permissions, the sandbox, and the Theme and Module store rules. |
+| [`archr-launcher-dev`](archr-launcher-dev/SKILL.md) | Create, test and publish themes and modules for archr-launcher (Rust + SDL2; 640×480, 720×720 and 480×320 screens): `theme.toml`, views, `[aspect.*]` layouts per screen shape, frames, sounds, `module.toml`, the JSON-RPC protocol, permissions, the sandbox, and the Theme and Module store rules. |
 
 The skills follow the [Agent Skills](https://agentskills.io) format: a folder
 with a `SKILL.md` and the files it points to. Any coding assistant that reads

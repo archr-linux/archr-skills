@@ -51,14 +51,19 @@ THEME_TOP = {
     "font_size", "margin", "list_width", "cover", "system_screen", "font",
     "font_semibold", "font_mono", "font_mono_medium", "name", "view", "sounds",
     "details_shot", "details_info", "details_title", "details_subtitle",
-    "details_text", "details_actions", "start_widgets", "achievements_progress",
+    "details_text", "details_actions", "start_widgets", "start_area", "achievements_progress",
     "achievements_list", "saves_list", "saves_card", "shots_grid", "switcher_card",
     "switcher_side", "switcher_info", "resume_shot", "resume_info", "corners",
     "border_width", "shadow", "art_scaling", "image_scaling", "easing", "font_scale",
     "font_grid", "font_min", "font_smoothing", "text_outline", "background_image",
-    "frames", "description", "author", "version", "license", "min_launcher",
+    "frames", "aspect", "description", "author", "version", "license", "min_launcher",
 }
-RECTS = {k for k in THEME_TOP if k.startswith(("details_", "achievements_", "saves_", "switcher_", "resume_"))} | {"shots_grid", "start_widgets"}
+RECTS = {k for k in THEME_TOP if k.startswith(("details_", "achievements_", "saves_", "switcher_", "resume_"))} | {"shots_grid", "start_widgets", "start_area", "cover"}
+# [aspect.<shape>] tables: square below 6:5, classic 6:5 to 29:20, wide above.
+ASPECTS = {"square", "classic", "wide"}
+# Kept from the theme as loaded, whatever the screen shape.
+PER_THEME = {"font", "font_semibold", "font_mono", "font_mono_medium", "name", "sounds",
+             "description", "author", "version", "license", "min_launcher"}
 SCREEN_KEYS = {"header", "title", "status", "divider", "summary", "list", "panel", "art",
                "backdrop", "info", "meta", "dots", "decor"}
 FRAMES = {"header", "footer", "list", "row", "selected", "panel", "art", "button",
@@ -92,6 +97,54 @@ def names(value, what: str):
         warnings.append(f"{what}: no text for {', '.join(missing)}")
 
 
+def check_layout(folder: Path, t: dict, at: str):
+    """Colors, rectangles, theme images and views: the keys an [aspect.<shape>]
+    table may change as well as the top level (`at` prefixes messages)."""
+    for key in COLOR_KEYS & t.keys():
+        if not (isinstance(t[key], str) and COLOR.match(t[key])):
+            errors.append(f"{at}{key}: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
+    for key in RECTS & t.keys():
+        r = t[key]
+        ok = isinstance(r, dict) and all(isinstance(r.get(c), (int, float)) and 0 <= r[c] <= 1 for c in "xywh")
+        if not ok or r["x"] + r["w"] > 1 or r["y"] + r["h"] > 1:
+            errors.append(f"{at}{key}: needs x, y, w, h fractions with x+w <= 1 and y+h <= 1 (else the default is used)")
+    file_ref(folder, t.get("background_image"), f"{at}background_image")
+    misplaced = "a top-level key written after a [table] header; move it above the first header"
+    for name, frame in (t.get("frames") or {}).items():
+        if name not in FRAMES:
+            warnings.append(f"{at}frames.{name}: unknown frame name, ignored")
+        for key in frame:
+            if key in THEME_TOP:
+                errors.append(f"{at}frames.{name}.{key}: {misplaced}")
+            elif key not in ("image", "slice", "scale", "pad", "tile"):
+                warnings.append(f"{at}frames.{name}.{key}: unknown key")
+        file_ref(folder, frame.get("image"), f"{at}frames.{name}.image")
+    for vid, view in (t.get("view") or {}).items():
+        if not isinstance(view, dict):
+            continue
+        if vid != "lista" and "name" in view:
+            names(view["name"], f"{at}view.{vid}.name")
+        for key in view:
+            if key in THEME_TOP and key not in ("name",):
+                errors.append(f"{at}view.{vid}.{key}: a top-level key written after a [table] header; move it above the first header")
+            elif key not in ("name", "systems", "games"):
+                warnings.append(f"{at}view.{vid}.{key}: unknown key")
+        for screen in ("systems", "games"):
+            for key, value in (view.get(screen) or {}).items():
+                if key in THEME_TOP:
+                    errors.append(f"{at}view.{vid}.{screen}.{key}: a top-level key written after a [table] header; move it above the first header")
+                elif key not in SCREEN_KEYS:
+                    warnings.append(f"{at}view.{vid}.{screen}.{key}: unknown key")
+                elif key == "decor":
+                    for d in value:
+                        file_ref(folder, d.get("image"), f"{at}view.{vid}.{screen}.decor")
+                elif isinstance(value, dict):
+                    for c in "xywh":
+                        v = value.get(c)
+                        if isinstance(v, (int, float)) and v > 1:
+                            errors.append(f"{at}view.{vid}.{screen}.{key}.{c} = {v}: use a screen fraction, not pixels")
+
+
 def check_theme(folder: Path):
     src = folder / "theme.toml"
     if src.stat().st_size > 64 << 10:
@@ -110,26 +163,9 @@ def check_theme(folder: Path):
         names(t["name"], "name")
     if "description" in t:
         names(t["description"], "description")
-    for key in COLOR_KEYS & t.keys():
-        if not (isinstance(t[key], str) and COLOR.match(t[key])):
-            errors.append(f"{key}: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
-    for key in RECTS & t.keys():
-        r = t[key]
-        ok = isinstance(r, dict) and all(isinstance(r.get(c), (int, float)) and 0 <= r[c] <= 1 for c in "xywh")
-        if not ok or r["x"] + r["w"] > 1 or r["y"] + r["h"] > 1:
-            errors.append(f"{key}: needs x, y, w, h fractions with x+w <= 1 and y+h <= 1 (else the default is used)")
-    for key in ("font", "font_semibold", "font_mono", "font_mono_medium", "background_image"):
-        file_ref(folder, t.get(key), key)
     misplaced = "a top-level key written after a [table] header; move it above the first header"
-    for name, frame in (t.get("frames") or {}).items():
-        if name not in FRAMES:
-            warnings.append(f"frames.{name}: unknown frame name, ignored")
-        for key in frame:
-            if key in THEME_TOP:
-                errors.append(f"frames.{name}.{key}: {misplaced}")
-            elif key not in ("image", "slice", "scale", "pad", "tile"):
-                warnings.append(f"frames.{name}.{key}: unknown key")
-        file_ref(folder, frame.get("image"), f"frames.{name}.image")
+    for key in ("font", "font_semibold", "font_mono", "font_mono_medium"):
+        file_ref(folder, t.get(key), key)
     for key, rel in (t.get("sounds") or {}).items():
         if key == "systems" and isinstance(rel, dict):
             for sysname, r in rel.items():
@@ -140,30 +176,23 @@ def check_theme(folder: Path):
             warnings.append(f"sounds.{key}: unknown sound event")
         else:
             file_ref(folder, rel, f"sounds.{key}")
-    for vid, view in (t.get("view") or {}).items():
-        if not isinstance(view, dict):
+    check_layout(folder, t, "")
+    aspects = t.get("aspect")
+    if aspects is not None and not isinstance(aspects, dict):
+        errors.append("aspect: must hold [aspect.square], [aspect.classic] or [aspect.wide] tables")
+    for shape, table in (aspects if isinstance(aspects, dict) else {}).items():
+        if shape not in ASPECTS:
+            warnings.append(f"aspect.{shape}: unknown screen shape (square, classic or wide), ignored")
             continue
-        if vid != "lista" and "name" in view:
-            names(view["name"], f"view.{vid}.name")
-        for key in view:
-            if key in THEME_TOP and key not in ("name",):
-                errors.append(f"view.{vid}.{key}: a top-level key written after a [table] header; move it above the first header")
-            elif key not in ("name", "systems", "games"):
-                warnings.append(f"view.{vid}.{key}: unknown key")
-        for screen in ("systems", "games"):
-            for key, value in (view.get(screen) or {}).items():
-                if key in THEME_TOP:
-                    errors.append(f"view.{vid}.{screen}.{key}: a top-level key written after a [table] header; move it above the first header")
-                elif key not in SCREEN_KEYS:
-                    warnings.append(f"view.{vid}.{screen}.{key}: unknown key")
-                elif key == "decor":
-                    for d in value:
-                        file_ref(folder, d.get("image"), f"view.{vid}.{screen}.decor")
-                elif isinstance(value, dict):
-                    for c in "xywh":
-                        v = value.get(c)
-                        if isinstance(v, (int, float)) and v > 1:
-                            errors.append(f"view.{vid}.{screen}.{key}.{c} = {v}: use a screen fraction, not pixels")
+        if not isinstance(table, dict):
+            errors.append(f"aspect.{shape}: must be a table")
+            continue
+        for key in table:
+            if key not in THEME_TOP or key == "aspect":
+                warnings.append(f"aspect.{shape}.{key}: unknown key (ignored by the launcher)")
+            elif key in PER_THEME:
+                warnings.append(f"aspect.{shape}.{key}: does not change per screen shape; set it at the top level")
+        check_layout(folder, table, f"aspect.{shape}.")
     for p in folder.rglob("*"):
         rel = p.relative_to(folder)
         if any(part.startswith(".") for part in rel.parts) or not p.is_file():

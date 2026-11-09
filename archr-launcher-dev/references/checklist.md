@@ -10,9 +10,15 @@ Content
 - [ ] All top-level keys come before the first `[table]` header.
 - [ ] `name` with `en`, plus `pt_BR`, `es`, `ru` (also for each new view's `name`
       and for `description`).
-- [ ] Positions are fractions (0..1); every `details_*`, `achievements_*`,
-      `saves_*`, `shots_grid`, `switcher_*`, `resume_*`, `start_widgets`
-      rectangle has `x + w <= 1` and `y + h <= 1`.
+- [ ] Positions are fractions (0..1); every `cover`, `details_*`,
+      `achievements_*`, `saves_*`, `shots_grid`, `switcher_*`, `resume_*`,
+      `start_widgets`, `start_area` rectangle has `x + w <= 1` and
+      `y + h <= 1`, also inside `[aspect.*]` tables.
+- [ ] `[aspect.*]` tables are named only `square`, `classic` or `wide`, come
+      after all top-level keys, and hold no font files, `name` or sounds.
+- [ ] If the theme sets `cover` or `list_width` at the top level, or moves
+      the games screen, it has its own `[aspect.square]` for them (the
+      default theme's square layout no longer applies).
 - [ ] Every file named in `theme.toml` exists, inside the folder, with the
       exact case.
 - [ ] Only store-kept file types: `toml png jpg jpeg webp svg ttf otf ogg wav
@@ -24,13 +30,17 @@ Content
 
 PC test
 - [ ] Capture test run for every view the theme defines, plus `:noart`, in
-      `en,pt_BR,es,ru`; every PNG looked at (systems, games, games-nocover,
-      details, dialog, Start menu, Appearance).
+      `en,pt_BR,es,ru`, at `ARCHR_CAPTURE_SIZE` 640x480, 720x720 and 480x320
+      (one output folder per size); every PNG looked at (systems, games,
+      games-nocover, details, dialog, Start menu, Appearance).
+- [ ] `cargo test -p archr-ui --test resolutions` passes with the theme
+      copied into the launcher's `themes/` (removed again afterwards).
 - [ ] No "Unknown theme key" / "Invalid theme field" warnings for your keys.
 
 Device test (only the user can do these)
 - [ ] Copied to `/storage/.config/archr-launcher/themes/<name>/`, selected in
-      Appearance, every view checked on the real screen.
+      Appearance, every view checked on the real screen (and on a square or
+      3:2 handheld too, if the user has one).
 - [ ] Sounds, decorations and animations feel right at R36S speed.
 
 Store
