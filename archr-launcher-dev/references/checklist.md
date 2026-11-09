@@ -33,6 +33,10 @@ PC test
       `en,pt_BR,es,ru`, at `ARCHR_CAPTURE_SIZE` 640x480, 720x720 and 480x320
       (one output folder per size); every PNG looked at (systems, games,
       games-nocover, details, dialog, Start menu, Appearance).
+- [ ] User Appearance options checked over the theme: box art off (the list
+      takes the whole width, no orphan `panel`), art at 55 % wide, corners 0
+      and 20, Bold weight, battery percentage off, switcher background at 40 %
+      and 80 % (readable over light and dark covers).
 - [ ] `cargo test -p archr-ui --test resolutions` passes with the theme
       copied into the launcher's `themes/` (removed again afterwards).
 - [ ] No "Unknown theme key" / "Invalid theme field" warnings for your keys.
@@ -41,6 +45,8 @@ Device test (only the user can do these)
 - [ ] Copied to `/storage/.config/archr-launcher/themes/<name>/`, selected in
       Appearance, every view checked on the real screen (and on a square or
       3:2 handheld too, if the user has one).
+- [ ] Same Appearance options tried on the device (art off/wider, Bold,
+      switcher background).
 - [ ] Sounds, decorations and animations feel right at R36S speed.
 
 Store
