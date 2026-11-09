@@ -95,19 +95,20 @@ they apply after the theme is read, so a theme cannot declare or disable them:
 | Font weight (`launcher.font_weight`) | theme (empty) / `bold` | `bold` uses the theme's `font_semibold` (`font_mono_medium` with the mono font); no such face, keeps the regular |
 | Battery percentage (`launcher.battery_percent`) | on (default) / off | hides the number in the status pill; the icon stays |
 | Box art (`launcher.game_art`) | on (default) / off | off removes the games screen `art`, `meta`, `backdrop` and the `panel` that coincides with the art |
-| Box art width (`launcher.art_width`) | theme / 35, 40, 45, 50, 55 % of screen width | art keeps its right edge; a list to its left keeps its gap; `meta` follows the art |
+| Box art width (`launcher.art_width`) | theme / 35, 40, 45, 50, 55 % of screen width | art keeps its outer edge (away from the list); the list beside it keeps its gap; `meta` follows the art |
 | Box art corners (`launcher.art_radius`) | theme / 0, 6, 12, 20 reference px | overrides the view's `art` `radius`; a coinciding `panel` follows (+1 px) |
 | Switcher background (`launcher.switcher_curtain`) | theme background / 40, 60, 80 % | selected game's picture fills the screen behind the switcher under a `background`-colored curtain at that opacity; no picture keeps the background |
 
 These override the view's `[view.*].games` `art` rect/radius. Details that
 matter when designing:
 
-- Art off: a list placed left of the art takes the whole width between equal
-  margins (`1 - 2 * list.x`). The `panel` is removed only if its `x`/`w` equal
+- Art off: a list beside the art (left or right) takes the whole width between
+  equal margins (its margin on the side away from the art, on both sides). The `panel` is removed only if its `x`/`w` equal
   the art's; a panel with another rect stays drawn.
-- Art wider: rebuilt from the theme's right edge; only a list that sits left of
-  the art shrinks (keeping the gap). A list elsewhere is not touched.
-- So: place the games list left of the art, keep `art` and `panel` rects equal
+- Art wider: rebuilt from its outer edge (right edge when the art is right of
+  the list, left edge when left of it); the list beside it steps back, keeping
+  the gap and its other edge. A list above or below the art is not touched.
+- So: place the games list beside the art, keep `art` and `panel` rects equal
   when the panel is the art's card, and make title/info work without the art.
 - The curtain is the theme `background`: choose one that works over light and
   dark covers.
