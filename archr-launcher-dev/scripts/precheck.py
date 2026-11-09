@@ -217,8 +217,10 @@ ALLOWED = {
     "config_read": READABLE,
     "config_write": {"system.cpugovernor", "global.netplay.nickname"},
     "hooks": {"launch"},
-    "system": {"cpu-profile", "brightness", "volume", "wifi", "screenshot"},
+    "system": {"cpu-profile", "cpu-tune", "brightness", "volume", "wifi", "screenshot"},
 }
+# API 4: systems the launcher refuses for permissions.install (already at the manifest).
+REFUSED_INSTALL = {"tools", "windows", "setup", "shell", "moonlight", "music", "idtech", "scummvm", "j2me"}
 EVENTS = {"launcher.started", "focus.system", "focus.game", "game.started", "game.ended"}
 SEMVER = re.compile(r"^\d{1,6}\.\d{1,6}\.\d{1,6}$")
 
@@ -246,6 +248,39 @@ def at_keys(node, found: set):
             at_keys(v, found)
 
 
+def check_install(value, api):
+    if api != 4:
+        errors.append("permissions.install needs api_version = 4")
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        errors.append("permissions.install: a list of system folders and/or \"ports\"")
+        return
+    for v in value:
+        if v in REFUSED_INSTALL:
+            warnings.append(f"permissions.install: {v} will be refused (runs as root or is not an emulated system)")
+
+
+def check_app(folder: Path, m: dict, api, run: dict):
+    app = m.get("app")
+    if app is None:
+        return
+    if api != 4:
+        warnings.append("[app]: ignored below api_version = 4")
+        return
+    if run.get("mode") != "daemon":
+        warnings.append("[app]: needs run.mode = \"daemon\"; the module will have no app")
+    if not app.get("home"):
+        warnings.append("[app].home: missing, the module will have no app")
+    art = app.get("art")
+    if art:
+        p = folder / art
+        if art.startswith("/") or ".." in Path(art).parts or not p.is_file():
+            errors.append(f"[app].art: {art} must be a file inside the module")
+        elif p.stat().st_size > 1024 * 1024:
+            errors.append("[app].art: larger than 1 MiB")
+    if not m.get("permissions", {}).get("install") and not app.get("home"):
+        warnings.append("[app]: no permissions.install; the app can show screens but not install games")
+
+
 def check_module(folder: Path, offline: bool):
     try:
         m = tomllib.loads((folder / "module.toml").read_text("utf-8"))
@@ -260,8 +295,8 @@ def check_module(folder: Path, offline: bool):
     if not SEMVER.match(str(m.get("version", ""))):
         errors.append("version: required, x.y.z")
     api = m.get("api_version")
-    if api not in (1, 2):
-        errors.append("api_version: 1 or 2")
+    if api not in (1, 2, 3, 4):
+        errors.append("api_version: 1, 2, 3 or 4")
     run = m.get("run", {})
     if run.get("runtime") not in ("sh", "bash", "native"):
         errors.append("run.runtime: sh, bash or native")
@@ -274,6 +309,9 @@ def check_module(folder: Path, offline: bool):
     for key, value in perms.items():
         if key in ("net", "launch"):
             continue
+        if key == "install":
+            check_install(value, api)
+            continue
         if key not in ALLOWED:
             errors.append(f"permissions.{key}: unknown or reserved permission (fatal)")
             continue
@@ -282,6 +320,7 @@ def check_module(folder: Path, offline: bool):
                 errors.append(f"permissions.{key}: {v} is not allowed")
     if api == 1 and (perms.get("launch") or any(perms.get(k) for k in ("config_write", "hooks", "system"))):
         errors.append("permissions: config_write, hooks, system and launch need api_version = 2")
+    check_app(folder, m, api, run)
     for hook in m.get("hooks", []):
         ev = hook.get("event")
         if ev not in EVENTS:
@@ -330,7 +369,7 @@ def check_module(folder: Path, offline: bool):
             names(m[field], field)
         elif isinstance(m.get(field), str) and m[field].startswith("@"):
             warnings.append(f"{field}: a language table shows in the store before install; @key does not")
-    icons = {m.get("icon")} | {e.get("icon") for k in ("tiles", "shortcuts", "widgets") for e in start.get(k, [])}
+    icons = {m.get("icon"), m.get("app", {}).get("icon")} | {e.get("icon") for k in ("tiles", "shortcuts", "widgets") for e in start.get(k, [])}
     for icon in sorted(i for i in icons if i):
         p = folder / "icons" / f"{icon}.svg"
         if not p.is_file():

@@ -475,6 +475,16 @@ system id (`snes`, `gba`, `gb`, `gbc`, `nes`, `n64`, `psx`, `psp`, `nds`,
 `saturn`, `ports`, ...). Missing ones come from the default theme. Transparent
 PNG works best; `art_scaling = "pixel"` for pixel art.
 
+**App art** (API 4 modules): `systems/app-<id>.png|.jpg|.webp`, where `<id>` is
+the module id, is the carousel picture of that module's app (same lookup as
+console art: user folder, theme, default); without it the launcher uses the
+module's own `art`, then its large icon. Nothing else in `theme.toml` is
+needed: app screens reuse the active view's `games` layout (collection
+screens) and the `details_*` rectangles (detail screens: the module picture in
+`details_shot`, buttons in `details_actions`), with chips, tags, the search
+keyboard and the confirm question in the theme colors. Text is never drawn
+under 10 px.
+
 **Sounds**: put `sounds/<event>.ogg` (Ogg Vorbis) or `.wav`, mono or stereo,
 at most 1 MiB each. No declaration needed. Events: `boot`, `move`, `page`,
 `select`, `back`, `launch`, `menu_open`, `menu_close`, `toggle`, `error`,

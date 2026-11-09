@@ -55,7 +55,7 @@ directory; check your tool's documentation for the path.
 archr-launcher-dev/
   SKILL.md                 workflow and ground rules
   references/themes.md     theme.toml schema, limits, PC capture test, store rules
-  references/modules.md    module.toml, API 2 protocol, permissions, sandbox, store rules
+  references/modules.md    module.toml, API 1 to 4 protocol (apps), permissions, sandbox, store rules
   references/checklist.md  what to verify before publishing
   assets/theme-template/   minimal theme that loads
   assets/module-template/  minimal module that passes --check-module
@@ -66,7 +66,7 @@ archr-launcher-dev/
 
 The skill does not replace a test on the handheld, and it cannot give a module
 the "Reviewed by ArchR" badge: only the ArchR maintainer grants it after
-reading the package. The references describe archr-launcher with module API 2;
+reading the package. The references describe archr-launcher with module API 4;
 when the launcher changes, the launcher's `docs/temas.md` and `docs/modulos.md`
 win.
 

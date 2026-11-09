@@ -66,8 +66,8 @@ Store
 
 Content
 - [ ] Folder / repository root named exactly as `id` (`[a-z0-9-]{3,40}`).
-- [ ] `version` x.y.z, `api_version` 1 or 2 (2 if using `config_write`,
-      `hooks`, `system`, `launch`).
+- [ ] `version` x.y.z, `api_version` 1 to 4 (2 if using `config_write`,
+      `hooks`, `system`, `launch`; 4 for `[app]` and `install`).
 - [ ] `[run]` runtime `sh`|`bash`|`native`, entry exists, mode fits the job
       (daemon for focus events, live values, `launch.before`).
 - [ ] Minimal permissions; none reserved (`write`) or unknown.
@@ -103,3 +103,27 @@ Store
 - [ ] Told the user: the "Reviewed by ArchR" badge is up to the maintainer
       (issue at archr-linux/archr-modules with the release link), and any new
       package needs a new review.
+
+App (API 4, only if the module has `[app]`)
+- [ ] `api_version = 4`, `mode = "daemon"`, `[app].home` set; `install` lists
+      only emulated systems (never `tools`, `windows`, `setup`, `shell`,
+      `moonlight`, `music`, `idtech`, `scummvm`, `j2me`) and `"ports"` only if
+      it installs ports.
+- [ ] First screen is placeholder-friendly: a `screen.show` goes out right
+      after `initialize`/`screen.opened` (empty or cached), network results
+      arrive later with `patch`; nothing blocks the first 30 s.
+- [ ] Long lists: `more` plus `screen.more` for paging; covers fetched only
+      for the window in `screen.visible`, not all at once.
+- [ ] Pictures are PNG/JPEG/WebP under 4 MiB, relative paths inside `HOME`,
+      no symlinks; `art` <= 1 MiB.
+- [ ] No install without a user action: `rom.install`/`port.install` only
+      inside the handling of an `action.invoke` (5 s window), on its own
+      "Install" button, after the download.
+- [ ] Removal sends `rom.remove`/`port.remove` and relies on the launcher's
+      own question; no custom confirm in front of it.
+- [ ] Quota (2 GiB, games and ports) and every error code handled with a
+      readable `screen.toast`; failures leave the screen usable.
+- [ ] Shutdown handled in 500 ms; no state kept only in memory.
+- [ ] Looked at with the three screen sizes and with a theme other than the
+      default; the carousel art `systems/app-<id>.png` is optional.
+- [ ] Tested on the device: opens at once, installs, plays, removes.
