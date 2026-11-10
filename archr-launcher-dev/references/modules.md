@@ -6,9 +6,10 @@ Source of truth: `docs/modulos.md`,
 examples: github.com/archr-linux/archr-module-bateria-detalhada (daemon) and
 archr-module-perfil-cpu (oneshot).
 
-API 4 (apps, section 14) is the newest API the launcher runs; modules of
-lower `api_version` still run. Sections 1 to 13 describe API 1 and 2; use
-nothing from API 3 or 4 unless section 14 lists it, and only with
+API 4 (apps, section 15) is the newest API the launcher runs; modules of
+lower `api_version` still run. Sections 1 to 13 describe API 1 and 2. Use
+API 3 (CPU tuning and detail pages, section 14) only with
+`api_version = 3` or higher, and API 4 only as section 15 lists it, with
 `api_version = 4`.
 
 ## Contents
@@ -26,7 +27,8 @@ nothing from API 3 or 4 unless section 14 lists it, and only with
 11. Test on the device
 12. Publish to the Module store
 13. Pitfalls
-14. Apps (API 4)
+14. CPU tuning and detail pages (API 3)
+15. Apps (API 4)
 
 ## 1. Package layout
 
@@ -49,7 +51,7 @@ Python is not guaranteed; `runtime = "python3"` is refused.
 ```toml
 id = "battery-plus"            # [a-z0-9-]{3,40}, unique on the device
 version = "1.0.0"              # x.y.z, digits only
-api_version = 2                # 1 or 2
+api_version = 2                # 1 to 4
 min_launcher = "0.1.0"         # optional, x.y.z
 name = { en = "Battery plus", pt_BR = "Bateria+", es = "Batería+", ru = "Батарея+" }
 description = { en = "...", pt_BR = "...", es = "...", ru = "..." }
@@ -198,6 +200,7 @@ your permission". An update that asks for more shows only the new ones.
 | `config_write = [...]` | `config.set` of the listed keys, values checked | 2 |
 | `hooks = ["launch"]` | receives `launch.before` before each game (daemon) | 2 |
 | `system = ["cpu-profile"]` | may choose the CPU governor of one launch in `launch.before` | 2 |
+| `system = ["cpu-tune"]` | may choose the CPU ceiling of one launch in `launch.before`; gets `perf` in `game.ended` (section 14) | 3 |
 | `system = ["brightness"]` / `["volume"]` / `["wifi"]` / `["screenshot"]` | `system.call` of that action | 2 |
 | `launch = true` | `game.launch` right after the user picks one of the module's actions | 2 |
 
@@ -512,7 +515,132 @@ with the link to your module's release.
 - Tag `v1.0.0` with `version = "1.0.1"` in the manifest → `modules.bad_tag`.
 - Repacking with `tar` from inside the folder → no `<id>/` prefix → refused.
 
-## 14. Apps (API 4)
+## 14. CPU tuning and detail pages (API 3)
+
+Source: `docs/modulos.md` section 9 and `examples/modules/ajuste-cpu` in the
+launcher (not yet in the Module store).
+
+API 3 adds only what automatic CPU tuning needs. In a manifest with
+`api_version` below 3, the page keys and row types below are ignored with a
+warning and `cpu-tune` is an error.
+
+### `system = ["cpu-tune"]`
+
+Only the CPU frequency ceiling of one launch: never the user's governor
+(that is `cpu-profile`), never GPU or memory, never free writes to `/sys`.
+Needs `hooks = ["launch"]` to have any effect.
+
+- `initialize` adds `cpu: {opps, max_khz}`: the frequencies the CPU accepts
+  now, in kHz, lowest first (boost ones only with boost on); `max_khz` is the
+  highest. RK3326: 408000, 816000, 1008000, 1416000, and 1512000 with turbo.
+- `launch.before` reply: `{"decision":"modify","changes":{"cpu_max_khz":816000}}`.
+  Only a value from `cpu.opps` is accepted. The launcher passes
+  `--cpu-max=<kHz>` to `runemu.sh`, which checks it against
+  `scaling_available_frequencies` / `scaling_boost_frequencies` and applies it
+  after the governor, for that launch only. Two modules: first by `id` wins.
+- With any `cpu-tune` module on, the launcher also passes `--measure`;
+  `archr-perf-probe` measures the game and `game.ended` gets `perf`, sent to
+  `cpu-tune` modules only:
+
+```json
+"perf": {"cpu_max_khz": 816000, "seconds": 150, "busy_p95": 71,
+         "limit_seconds": 0, "idle_seconds": 4, "current_ma": 420}
+```
+
+| field | meaning |
+|---|---|
+| `cpu_max_khz` | ceiling the game ran with |
+| `seconds` | seconds measured (the first 30 s do not count) |
+| `busy_p95` | p95 load (%) of the emulator's busiest thread, per second |
+| `limit_seconds` | seconds that thread was above 92 % |
+| `idle_seconds` | seconds it was below 20 % (pause, menu, waiting) |
+| `current_ma` | average battery current in mA while discharging, `null` on the charger |
+
+Only processes inside the launch's tree count. It is a CPU load heuristic,
+not a speed measurement (no frame counting yet): never promise "100 % speed"
+from it, and discard sessions that are mostly idle. After every game
+`archr-launcher-session` restores the highest ceiling, even if `runemu.sh`
+was killed.
+
+### New page keys and row types
+
+All drawn by the launcher; content comes from `ui.update` with `items` to
+`row:<id>`. The layout is fixed. Colors by name only (`tone`): `good`,
+`info`, `bad`, `muted` or none.
+
+| key | where | effect |
+|---|---|---|
+| `hint` | page | footer text, left of the buttons |
+| `layout = "detail"` | page | detail layout |
+| `open = "<page>"` | `list` row | A on an item sends its action and opens that page for that item only |
+| `alt_action`, `alt_label` | `list` row | X on an item sends `alt_action` with `context.item`; footer shows `alt_label` |
+| `icon` | `action` row | Lucide icon of the button on a detail page |
+
+| `type` | drawing | item fields |
+|---|---|---|
+| `stats` | up to 3 cards at the top, never selected | `title`, `value` (large, `tone` color), `subtitle` |
+| `header` | detail page header: game cover, name, line, badge | `id` (of the opened item), `title`, `subtitle`, `badge`, `tone`, `game: {system, game_key}` |
+| `bars` | bars, title left, value right; the row `label` is the section title | `title`, `value`, `progress` (0 to 100), `tone` |
+| `facts` | name/value lines in the right column | `title`, `value`, `tone` |
+
+`list` items gain `detail` (second line, right), `badge` (tag in place of the
+value), `tone` and `open: false` (A sends the action without opening the
+`open` page; use it for next/previous page items of a long list).
+
+Detail page: left, the `header`, `bars` and `text` rows; right, the `facts`
+and below them the `action` rows as buttons, the only selectable rows. Each
+button sends its action with `context.item` of the opened item. The page
+stays empty until the module sends a `header` whose `id` is the opened item.
+The cover comes from the launcher's library through `header.game`; the
+module reads no ROMs or images.
+
+```toml
+api_version = 3
+[run]
+runtime = "bash"
+entry = "main.sh"
+mode = "daemon"
+[permissions]
+hooks = ["launch"]
+system = ["cpu-tune"]
+[[settings.pages]]
+id = "main"
+hint = "@hint"
+[[settings.pages.rows]]
+type = "stats"
+id = "summary"
+[[settings.pages.rows]]
+type = "list"
+id = "games"
+open = "game"
+alt_action = "relearn"
+alt_label = "@relearn"
+[[settings.pages]]
+id = "game"
+layout = "detail"
+[[settings.pages.rows]]
+type = "header"
+id = "head"
+[[settings.pages.rows]]
+type = "bars"
+id = "bars"
+[[settings.pages.rows]]
+type = "facts"
+id = "facts"
+[[settings.pages.rows]]
+type = "action"
+action = "maximum"
+icon = "zap"
+```
+
+`ajuste-cpu` lowers one step only with clear headroom (p95 under 75 % and
+under 1 % of the time at the limit), raises one at the limit, calls a game
+learned after 3 stable sessions at the same ceiling, discards short or idle
+sessions and skips N64, PSP, Dreamcast and Saturn. Its list goes in pages of
+18 games with `open: false` items for next/previous, at most 20 items per
+update. PC test: `bash examples/modules/ajuste-cpu.test.sh`.
+
+## 15. Apps (API 4)
 
 Source: `docs/modulos.md` section 10 and `examples/modules/catalogo-demo` in
 the launcher; real app: github.com/archr-linux/archr-module-itchio.
@@ -562,8 +690,11 @@ launch = true                      # "Play" after installing
 - A module with only `[app]` has no resident daemon. With tiles, widgets or
   events there are two processes; both get `settings.changed`.
 - It ends (`shutdown`, 500 ms, kill) on B at the first screen, when a game
-  opens, on suspend/power off and when the launcher closes. Never restarted;
-  an error exit counts as a failure. START opens the module's Settings pages.
+  opens, on power off/reboot from the launcher and when the launcher closes.
+  Suspend does not end it: it stops with the system and resumes where it
+  was, but open connections usually drop (Wi-Fi returns within seconds), so
+  retry an interrupted download. Never restarted; an error exit counts as a
+  failure. START opens the module's Settings pages.
 
 ### Screens (module to launcher, notifications)
 
@@ -575,6 +706,7 @@ launch = true                      # "Play" after installing
 | `screen.confirm` | `{id, text, yes?, no?}`; reply `screen.answer` |
 | `screen.busy` | `{text}`; `{text:null}` clears |
 | `screen.offline` | `{text?}`; `{text:null}` clears |
+| `screen.qr` | `{id, title?, value, text?, code?}`: QR code over the screen; `{id, value:null}` removes it |
 
 - Collection: `chips` (<= 8 `{id,label,selected}`), `items` (<= 50 per
   message, 1000 per screen: `{id,title,subtitle?,badge?,tone?,image?}`),
@@ -594,13 +726,22 @@ launch = true                      # "Play" after installing
   not PNG/JPEG/WebP. Only the pictures on screen are read; the launcher
   copies and decodes its own copy. An item may get its `image` later with
   `screen.patch {screen, target:"item:<id>", image}`.
+- **QR code** (`screen.qr`): black on a white square whatever the theme,
+  `title` above, `text` (<= 3 lines) and the address below. `value` must be
+  an `https://` URL, <= 512 bytes, no spaces or control characters (else
+  refused, logged). `code` (<= 16 chars) is shown large between code and
+  text, for a QR sign-in code the user compares with the phone. A new
+  `screen.qr` replaces the open one (same `id` updates the text). B or A
+  closes it and sends `screen.dismissed {id}`; other buttons do nothing. A
+  `screen.confirm` opened on top is answered first.
 
 ### What the app hears
 
 `screen.opened {screen}`, `screen.select {screen,item}`, `screen.chip
 {screen,chip}`, `screen.more {screen,count}` (5 items from the end, once per
 `append`), `screen.search {screen,text}` (SELECT keyboard, <= 64 bytes),
-`screen.answer {id,yes}`, `screen.back {screen}`, `screen.visible
+`screen.answer {id,yes}`, `screen.back {screen}`, `screen.dismissed {id}`
+(B or A closed that `screen.qr`), `screen.visible
 {screen,from,to}` (150 ms after the window stops; in a detail `from == to`
 is the shown picture), `port.progress {name,progress}`. Module buttons come
 as `action.invoke` with `context:{screen,item?}` (X/Y on a collection) or
@@ -610,7 +751,7 @@ as `action.invoke` with `context:{screen,item?}` (X/Y on a collection) or
 
 | method | params | result |
 |---|---|---|
-| `rom.install` | `{system,file,name?,cover?,meta?:{developer,description,year}}` | `{game_key}` |
+| `rom.install` | `{system,file,name?,cover?,meta?:{developer,description,year},replace?}` | `{game_key}` |
 | `rom.list` | `{}` | `{games:[{game_key,system,size,date}],used,limit}` |
 | `rom.remove` | `{game_key}` | `{removed}` |
 | `port.install` | `{name}` | `{game_key}` |
@@ -624,6 +765,17 @@ Security rules the launcher enforces:
 - `file` is inside `HOME`, <= 64 MiB, with an extension of the system and not
   one the device executes (`.sh .bash .run .appimage .desktop .py .pl .jar`).
 - `cover` that is not a valid image is dropped; the game still installs.
+- **New version** (`replace: <game_key>`): only if `capabilities` lists
+  `rom.install.replace` (an older launcher ignores the field and installs a
+  second copy). Replaces a game the module installed, same path and same
+  file name (`name` ignored), so saves and states keep working. Must be in
+  the module's record, same system and extension, and unchanged since
+  install (size and date), checked before and right before the swap;
+  otherwise `-32001`. Written under another name, then `rename`d over the
+  old file; without `cover` the old cover stays; the record entry and the
+  quota are replaced, not added. Offer "Update" when the game's page shows a
+  different file from the one stored at install. The reply comes when the
+  copy ends.
 - Quota 2 GiB per module (games and ports together): `-32003`. One copy at a
   time, one `rom.install` per second.
 - Removal only of what the module installed (`-32001`). The launcher asks the
@@ -639,8 +791,10 @@ Security rules the launcher enforces:
 
 Error codes: `-32001` not allowed, `-32602` bad params, `-32003` quota,
 `-32004` not found, `-32005` port already installed, `-32000` other (last
-script error line), `-32601` unknown method (`screen.qr` does not exist yet:
-carry on without it).
+script error line), `-32601` unknown method. `initialize` lists in
+`capabilities` the `screen.*` methods the launcher draws; one missing there
+(an older launcher without `screen.qr`) is refused with a log warning, so
+check `capabilities` and carry on without it.
 
 ### Minimal app (sh + jq), from catalogo-demo
 
