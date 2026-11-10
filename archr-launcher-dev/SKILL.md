@@ -130,4 +130,4 @@ reads, the gamepad or the R36S speed.
 - In TOML, every top-level key must come before the first `[table]` header,
   or it lands inside that table and is ignored. This is the most common
   theme bug.
-- Modules API 4 (apps) is the current API. `system = ["cpu-tune"]` and the page keys and row types of the detail page (`hint`, `layout = "detail"`, `open`, `alt_action`, `stats`, `header`, `bars`, `facts`) need `api_version = 3`; `[app]` and `permissions.install` need `api_version = 4`. Lower versions ignore or refuse them.
+- Modules API 4 (apps) is the current API. `system = ["cpu-tune"]` and the page keys and row types of the detail page (`hint`, `layout = "detail"`, `open`, `alt_action`, `stats`, `header`, `bars`, `facts`) need `api_version = 3`; `[app]` and `permissions.install` need `api_version = 4`. Lower versions ignore or refuse them. Newer API 4 features (`screen.qr`, `rom.install` with `replace`) exist only when `initialize` lists them in `capabilities`.

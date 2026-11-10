@@ -690,8 +690,11 @@ launch = true                      # "Play" after installing
 - A module with only `[app]` has no resident daemon. With tiles, widgets or
   events there are two processes; both get `settings.changed`.
 - It ends (`shutdown`, 500 ms, kill) on B at the first screen, when a game
-  opens, on suspend/power off and when the launcher closes. Never restarted;
-  an error exit counts as a failure. START opens the module's Settings pages.
+  opens, on power off/reboot from the launcher and when the launcher closes.
+  Suspend does not end it: it stops with the system and resumes where it
+  was, but open connections usually drop (Wi-Fi returns within seconds), so
+  retry an interrupted download. Never restarted; an error exit counts as a
+  failure. START opens the module's Settings pages.
 
 ### Screens (module to launcher, notifications)
 
@@ -703,6 +706,7 @@ launch = true                      # "Play" after installing
 | `screen.confirm` | `{id, text, yes?, no?}`; reply `screen.answer` |
 | `screen.busy` | `{text}`; `{text:null}` clears |
 | `screen.offline` | `{text?}`; `{text:null}` clears |
+| `screen.qr` | `{id, title?, value, text?, code?}`: QR code over the screen; `{id, value:null}` removes it |
 
 - Collection: `chips` (<= 8 `{id,label,selected}`), `items` (<= 50 per
   message, 1000 per screen: `{id,title,subtitle?,badge?,tone?,image?}`),
@@ -722,13 +726,22 @@ launch = true                      # "Play" after installing
   not PNG/JPEG/WebP. Only the pictures on screen are read; the launcher
   copies and decodes its own copy. An item may get its `image` later with
   `screen.patch {screen, target:"item:<id>", image}`.
+- **QR code** (`screen.qr`): black on a white square whatever the theme,
+  `title` above, `text` (<= 3 lines) and the address below. `value` must be
+  an `https://` URL, <= 512 bytes, no spaces or control characters (else
+  refused, logged). `code` (<= 16 chars) is shown large between code and
+  text, for a QR sign-in code the user compares with the phone. A new
+  `screen.qr` replaces the open one (same `id` updates the text). B or A
+  closes it and sends `screen.dismissed {id}`; other buttons do nothing. A
+  `screen.confirm` opened on top is answered first.
 
 ### What the app hears
 
 `screen.opened {screen}`, `screen.select {screen,item}`, `screen.chip
 {screen,chip}`, `screen.more {screen,count}` (5 items from the end, once per
 `append`), `screen.search {screen,text}` (SELECT keyboard, <= 64 bytes),
-`screen.answer {id,yes}`, `screen.back {screen}`, `screen.visible
+`screen.answer {id,yes}`, `screen.back {screen}`, `screen.dismissed {id}`
+(B or A closed that `screen.qr`), `screen.visible
 {screen,from,to}` (150 ms after the window stops; in a detail `from == to`
 is the shown picture), `port.progress {name,progress}`. Module buttons come
 as `action.invoke` with `context:{screen,item?}` (X/Y on a collection) or
@@ -738,7 +751,7 @@ as `action.invoke` with `context:{screen,item?}` (X/Y on a collection) or
 
 | method | params | result |
 |---|---|---|
-| `rom.install` | `{system,file,name?,cover?,meta?:{developer,description,year}}` | `{game_key}` |
+| `rom.install` | `{system,file,name?,cover?,meta?:{developer,description,year},replace?}` | `{game_key}` |
 | `rom.list` | `{}` | `{games:[{game_key,system,size,date}],used,limit}` |
 | `rom.remove` | `{game_key}` | `{removed}` |
 | `port.install` | `{name}` | `{game_key}` |
@@ -752,6 +765,17 @@ Security rules the launcher enforces:
 - `file` is inside `HOME`, <= 64 MiB, with an extension of the system and not
   one the device executes (`.sh .bash .run .appimage .desktop .py .pl .jar`).
 - `cover` that is not a valid image is dropped; the game still installs.
+- **New version** (`replace: <game_key>`): only if `capabilities` lists
+  `rom.install.replace` (an older launcher ignores the field and installs a
+  second copy). Replaces a game the module installed, same path and same
+  file name (`name` ignored), so saves and states keep working. Must be in
+  the module's record, same system and extension, and unchanged since
+  install (size and date), checked before and right before the swap;
+  otherwise `-32001`. Written under another name, then `rename`d over the
+  old file; without `cover` the old cover stays; the record entry and the
+  quota are replaced, not added. Offer "Update" when the game's page shows a
+  different file from the one stored at install. The reply comes when the
+  copy ends.
 - Quota 2 GiB per module (games and ports together): `-32003`. One copy at a
   time, one `rom.install` per second.
 - Removal only of what the module installed (`-32001`). The launcher asks the
@@ -767,8 +791,10 @@ Security rules the launcher enforces:
 
 Error codes: `-32001` not allowed, `-32602` bad params, `-32003` quota,
 `-32004` not found, `-32005` port already installed, `-32000` other (last
-script error line), `-32601` unknown method (`screen.qr` does not exist yet:
-carry on without it).
+script error line), `-32601` unknown method. `initialize` lists in
+`capabilities` the `screen.*` methods the launcher draws; one missing there
+(an older launcher without `screen.qr`) is refused with a log warning, so
+check `capabilities` and carry on without it.
 
 ### Minimal app (sh + jq), from catalogo-demo
 
