@@ -20,9 +20,10 @@ the launcher:
   that the launcher starts in a systemd sandbox and talks to with JSON-RPC 2.0,
   one JSON object per line on stdin/stdout. The module *declares* in
   `module.toml` what it adds (Start tiles, a Start widget, a Y-menu item,
-  settings pages, event hooks, and since API 4 an app with its own screens that
-  can install games) and the launcher draws it. A module never draws
-  pixels, never reads the gamepad and never runs as root.
+  settings pages, event hooks, since API 3 a per-game CPU ceiling and detail
+  pages, and since API 4 an app with its own screens that can install games)
+  and the launcher draws it. A module never draws pixels, never reads the
+  gamepad and never runs as root.
 
 The launcher validates both leniently: unknown keys and bad values are logged
 and ignored, never fatal (except a few module fields). That means a mistake
@@ -129,4 +130,4 @@ reads, the gamepad or the R36S speed.
 - In TOML, every top-level key must come before the first `[table]` header,
   or it lands inside that table and is ignored. This is the most common
   theme bug.
-- Modules API 4 (apps) is the current API. `[app]` and `permissions.install` need `api_version = 4`; lower versions ignore or refuse them.
+- Modules API 4 (apps) is the current API. `system = ["cpu-tune"]` and the page keys and row types of the detail page (`hint`, `layout = "detail"`, `open`, `alt_action`, `stats`, `header`, `bars`, `facts`) need `api_version = 3`; `[app]` and `permissions.install` need `api_version = 4`. Lower versions ignore or refuse them.

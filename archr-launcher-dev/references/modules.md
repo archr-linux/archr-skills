@@ -6,9 +6,10 @@ Source of truth: `docs/modulos.md`,
 examples: github.com/archr-linux/archr-module-bateria-detalhada (daemon) and
 archr-module-perfil-cpu (oneshot).
 
-API 4 (apps, section 14) is the newest API the launcher runs; modules of
-lower `api_version` still run. Sections 1 to 13 describe API 1 and 2; use
-nothing from API 3 or 4 unless section 14 lists it, and only with
+API 4 (apps, section 15) is the newest API the launcher runs; modules of
+lower `api_version` still run. Sections 1 to 13 describe API 1 and 2. Use
+API 3 (CPU tuning and detail pages, section 14) only with
+`api_version = 3` or higher, and API 4 only as section 15 lists it, with
 `api_version = 4`.
 
 ## Contents
@@ -26,7 +27,8 @@ nothing from API 3 or 4 unless section 14 lists it, and only with
 11. Test on the device
 12. Publish to the Module store
 13. Pitfalls
-14. Apps (API 4)
+14. CPU tuning and detail pages (API 3)
+15. Apps (API 4)
 
 ## 1. Package layout
 
@@ -49,7 +51,7 @@ Python is not guaranteed; `runtime = "python3"` is refused.
 ```toml
 id = "battery-plus"            # [a-z0-9-]{3,40}, unique on the device
 version = "1.0.0"              # x.y.z, digits only
-api_version = 2                # 1 or 2
+api_version = 2                # 1 to 4
 min_launcher = "0.1.0"         # optional, x.y.z
 name = { en = "Battery plus", pt_BR = "Bateria+", es = "Batería+", ru = "Батарея+" }
 description = { en = "...", pt_BR = "...", es = "...", ru = "..." }
@@ -198,6 +200,7 @@ your permission". An update that asks for more shows only the new ones.
 | `config_write = [...]` | `config.set` of the listed keys, values checked | 2 |
 | `hooks = ["launch"]` | receives `launch.before` before each game (daemon) | 2 |
 | `system = ["cpu-profile"]` | may choose the CPU governor of one launch in `launch.before` | 2 |
+| `system = ["cpu-tune"]` | may choose the CPU ceiling of one launch in `launch.before`; gets `perf` in `game.ended` (section 14) | 3 |
 | `system = ["brightness"]` / `["volume"]` / `["wifi"]` / `["screenshot"]` | `system.call` of that action | 2 |
 | `launch = true` | `game.launch` right after the user picks one of the module's actions | 2 |
 
@@ -512,7 +515,132 @@ with the link to your module's release.
 - Tag `v1.0.0` with `version = "1.0.1"` in the manifest → `modules.bad_tag`.
 - Repacking with `tar` from inside the folder → no `<id>/` prefix → refused.
 
-## 14. Apps (API 4)
+## 14. CPU tuning and detail pages (API 3)
+
+Source: `docs/modulos.md` section 9 and `examples/modules/ajuste-cpu` in the
+launcher (not yet in the Module store).
+
+API 3 adds only what automatic CPU tuning needs. In a manifest with
+`api_version` below 3, the page keys and row types below are ignored with a
+warning and `cpu-tune` is an error.
+
+### `system = ["cpu-tune"]`
+
+Only the CPU frequency ceiling of one launch: never the user's governor
+(that is `cpu-profile`), never GPU or memory, never free writes to `/sys`.
+Needs `hooks = ["launch"]` to have any effect.
+
+- `initialize` adds `cpu: {opps, max_khz}`: the frequencies the CPU accepts
+  now, in kHz, lowest first (boost ones only with boost on); `max_khz` is the
+  highest. RK3326: 408000, 816000, 1008000, 1416000, and 1512000 with turbo.
+- `launch.before` reply: `{"decision":"modify","changes":{"cpu_max_khz":816000}}`.
+  Only a value from `cpu.opps` is accepted. The launcher passes
+  `--cpu-max=<kHz>` to `runemu.sh`, which checks it against
+  `scaling_available_frequencies` / `scaling_boost_frequencies` and applies it
+  after the governor, for that launch only. Two modules: first by `id` wins.
+- With any `cpu-tune` module on, the launcher also passes `--measure`;
+  `archr-perf-probe` measures the game and `game.ended` gets `perf`, sent to
+  `cpu-tune` modules only:
+
+```json
+"perf": {"cpu_max_khz": 816000, "seconds": 150, "busy_p95": 71,
+         "limit_seconds": 0, "idle_seconds": 4, "current_ma": 420}
+```
+
+| field | meaning |
+|---|---|
+| `cpu_max_khz` | ceiling the game ran with |
+| `seconds` | seconds measured (the first 30 s do not count) |
+| `busy_p95` | p95 load (%) of the emulator's busiest thread, per second |
+| `limit_seconds` | seconds that thread was above 92 % |
+| `idle_seconds` | seconds it was below 20 % (pause, menu, waiting) |
+| `current_ma` | average battery current in mA while discharging, `null` on the charger |
+
+Only processes inside the launch's tree count. It is a CPU load heuristic,
+not a speed measurement (no frame counting yet): never promise "100 % speed"
+from it, and discard sessions that are mostly idle. After every game
+`archr-launcher-session` restores the highest ceiling, even if `runemu.sh`
+was killed.
+
+### New page keys and row types
+
+All drawn by the launcher; content comes from `ui.update` with `items` to
+`row:<id>`. The layout is fixed. Colors by name only (`tone`): `good`,
+`info`, `bad`, `muted` or none.
+
+| key | where | effect |
+|---|---|---|
+| `hint` | page | footer text, left of the buttons |
+| `layout = "detail"` | page | detail layout |
+| `open = "<page>"` | `list` row | A on an item sends its action and opens that page for that item only |
+| `alt_action`, `alt_label` | `list` row | X on an item sends `alt_action` with `context.item`; footer shows `alt_label` |
+| `icon` | `action` row | Lucide icon of the button on a detail page |
+
+| `type` | drawing | item fields |
+|---|---|---|
+| `stats` | up to 3 cards at the top, never selected | `title`, `value` (large, `tone` color), `subtitle` |
+| `header` | detail page header: game cover, name, line, badge | `id` (of the opened item), `title`, `subtitle`, `badge`, `tone`, `game: {system, game_key}` |
+| `bars` | bars, title left, value right; the row `label` is the section title | `title`, `value`, `progress` (0 to 100), `tone` |
+| `facts` | name/value lines in the right column | `title`, `value`, `tone` |
+
+`list` items gain `detail` (second line, right), `badge` (tag in place of the
+value), `tone` and `open: false` (A sends the action without opening the
+`open` page; use it for next/previous page items of a long list).
+
+Detail page: left, the `header`, `bars` and `text` rows; right, the `facts`
+and below them the `action` rows as buttons, the only selectable rows. Each
+button sends its action with `context.item` of the opened item. The page
+stays empty until the module sends a `header` whose `id` is the opened item.
+The cover comes from the launcher's library through `header.game`; the
+module reads no ROMs or images.
+
+```toml
+api_version = 3
+[run]
+runtime = "bash"
+entry = "main.sh"
+mode = "daemon"
+[permissions]
+hooks = ["launch"]
+system = ["cpu-tune"]
+[[settings.pages]]
+id = "main"
+hint = "@hint"
+[[settings.pages.rows]]
+type = "stats"
+id = "summary"
+[[settings.pages.rows]]
+type = "list"
+id = "games"
+open = "game"
+alt_action = "relearn"
+alt_label = "@relearn"
+[[settings.pages]]
+id = "game"
+layout = "detail"
+[[settings.pages.rows]]
+type = "header"
+id = "head"
+[[settings.pages.rows]]
+type = "bars"
+id = "bars"
+[[settings.pages.rows]]
+type = "facts"
+id = "facts"
+[[settings.pages.rows]]
+type = "action"
+action = "maximum"
+icon = "zap"
+```
+
+`ajuste-cpu` lowers one step only with clear headroom (p95 under 75 % and
+under 1 % of the time at the limit), raises one at the limit, calls a game
+learned after 3 stable sessions at the same ceiling, discards short or idle
+sessions and skips N64, PSP, Dreamcast and Saturn. Its list goes in pages of
+18 games with `open: false` items for next/previous, at most 20 items per
+update. PC test: `bash examples/modules/ajuste-cpu.test.sh`.
+
+## 15. Apps (API 4)
 
 Source: `docs/modulos.md` section 10 and `examples/modules/catalogo-demo` in
 the launcher; real app: github.com/archr-linux/archr-module-itchio.

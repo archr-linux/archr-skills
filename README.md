@@ -55,7 +55,7 @@ directory; check your tool's documentation for the path.
 archr-launcher-dev/
   SKILL.md                 workflow and ground rules
   references/themes.md     theme.toml schema, limits, PC capture test, store rules
-  references/modules.md    module.toml, API 1 to 4 protocol (apps), permissions, sandbox, store rules
+  references/modules.md    module.toml, API 1 to 4 protocol (CPU tuning, apps), permissions, sandbox, store rules
   references/checklist.md  what to verify before publishing
   assets/theme-template/   minimal theme that loads
   assets/module-template/  minimal module that passes --check-module
