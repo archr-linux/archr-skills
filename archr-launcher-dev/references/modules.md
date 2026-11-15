@@ -250,7 +250,7 @@ on the current image:
   `game.started`, then `shutdown`, waits 500 ms and kills what is left. On
   return, daemons are started again and get `game.ended`.
 - EOF on stdin means exit.
-- Timeouts: `initialize` 3 s; `action.invoke` 1 s (daemon); a whole oneshot 2 s.
+- Timeouts: `initialize` 10 s; `action.invoke` 1 s (daemon); a whole oneshot 2 s.
 - Failures (timeout, invalid JSON, non-zero exit, dying before replying, not
   reading stdin): 3 in 10 minutes disable the module ("stopped responding").
   A crashed daemon restarts after 1 s, 5 s, 30 s. A store update that fails
@@ -507,7 +507,7 @@ with the link to your module's release.
 - `[[hooks]] event = "focus.game"` on a oneshot never fires (daemons only).
 - Writing anything but protocol JSON to stdout → counted as a failure.
 - A oneshot that does not exit within 2 s, or a daemon slow to answer
-  `initialize` (3 s) → failure; 3 failures in 10 min disable the module.
+  `initialize` (10 s) → failure; 3 failures in 10 min disable the module.
 - Writing to the settings file or the module folder → read-only; use
   `settings.set` (daemon) and `$HOME`.
 - Assuming network, `curl`, Python or `/storage/roms` access without the
