@@ -79,6 +79,8 @@ to install the theme.
 | `success`, `warning`, `danger` | ok, attention, failure states |
 | `scrim` | veil behind notices and menus (use alpha, e.g. `"#05080B99"`) |
 
+Notifications (top-corner cards) use `surface`, `border`, `text`, `text_secondary`, and their kind's color for the icon and time bar: `success` (`icons/check.svg`), `accent` (`icons/info.svg`) or `warning` (`icons/triangle-alert.svg`, also tints the border). A theme that ships its own icons should include `info.svg` and `list.svg` (the long-list marker in Settings).
+
 Legacy aliases: `highlight_bg` = `accent`, `highlight_text` = `accent_text`,
 `dim_text` = `dim`. Write the new names.
 
