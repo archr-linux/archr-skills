@@ -62,7 +62,7 @@ THEME_TOP = {
 "focus_scale", "focus_ring", "motion", "gradient", "title_tracking",
 # 3.1 later: spaced small capitals, glyph hinting, an app's screens.
 "caps_tracking", "font_hinting", "app",
-"toast", "hints", "status", "dialog", "start", "menu", "details", "achievements",
+"toast", "hints", "status", "header", "dialog", "start", "menu", "details", "achievements",
 "saves", "shots", "switcher", "resume", "search", "keyboard", "osd", "settings",
 }
 RECTS = {k for k in THEME_TOP if k.startswith(("details_", "achievements_", "saves_", "switcher_", "resume_"))} | {"shots_grid", "start_widgets", "start_area", "cover"}
@@ -86,6 +86,7 @@ SCREEN_TABLES = {
     "hints": {"style": {"bar", "capsule"}, "position": {"left", "center", "right"}, "lit": None},
     "status": {"style": {"glass", "plain"}, "battery": None, "radios": None,
                "clock": {"mono", "text"}, "rect": "rect"},
+    "header": {"style": {"path", "capsule"}},
     "dialog": {"width": None, "radius": None, "icon": None, "buttons": {"row", "hints"},
                "style": {"glass", "plain"}},
     "start": {"style": {"tiles", "control"}, "radius": None, "shortcut": None, "clock": "clock",
@@ -267,7 +268,8 @@ def check_layout(folder: Path, t: dict, at: str):
             errors.append(f"{at}view.{vid}.home: true or [view.{vid}.home.*] tables")
         for screen in ("systems", "games"):
             for key, value in (view.get(screen) or {}).items():
-                if key in THEME_TOP:
+                # header and status are a screen's keys as well as tables.
+                if key in THEME_TOP and key not in SCREEN_KEYS:
                     errors.append(f"{at}view.{vid}.{screen}.{key}: a top-level key written after a [table] header; move it above the first header")
                 elif key not in SCREEN_KEYS:
                     warnings.append(f"{at}view.{vid}.{screen}.{key}: unknown key")
