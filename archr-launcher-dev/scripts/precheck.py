@@ -57,20 +57,61 @@ THEME_TOP = {
     "border_width", "shadow", "art_scaling", "image_scaling", "easing", "font_scale",
     "font_grid", "font_min", "font_smoothing", "text_outline", "background_image",
     "frames", "aspect", "description", "author", "version", "license", "min_launcher",
+# 3.1: bold face, style, and one table per screen.
+"font_bold", "shadow_color", "shadow_blur", "shadow_offset", "glass", "focus",
+"focus_scale", "focus_ring", "motion", "gradient",
+"toast", "hints", "status", "dialog", "start", "menu", "details", "achievements",
+"saves", "shots", "switcher", "resume", "search", "keyboard", "osd", "settings",
 }
 RECTS = {k for k in THEME_TOP if k.startswith(("details_", "achievements_", "saves_", "switcher_", "resume_"))} | {"shots_grid", "start_widgets", "start_area", "cover"}
 # [aspect.<shape>] tables: square below 6:5, classic 6:5 to 29:20, wide above.
 ASPECTS = {"square", "classic", "wide"}
 # Kept from the theme as loaded, whatever the screen shape.
-PER_THEME = {"font", "font_semibold", "font_mono", "font_mono_medium", "name", "sounds",
+PER_THEME = {"font", "font_semibold", "font_bold", "font_mono", "font_mono_medium", "name", "sounds",
              "description", "author", "version", "license", "min_launcher"}
 SCREEN_KEYS = {"header", "title", "status", "divider", "summary", "list", "panel", "art",
-               "backdrop", "info", "meta", "dots", "decor"}
+               "backdrop", "info", "meta", "dots", "decor", "strip"}
 FRAMES = {"header", "footer", "list", "row", "selected", "panel", "art", "button",
           "button_selected", "badge", "tile", "tile_selected"}
 SOUND_EVENTS = {"boot", "move", "page", "select", "back", "launch", "menu_open",
                 "menu_close", "toggle", "error", "notice", "favorite"}
 KEPT = {"toml", "png", "jpg", "jpeg", "webp", "svg", "ttf", "otf", "ogg", "wav", "txt", "md"}
+# 3.1 screen tables (launcher crates/archr-ui/src/screens.rs): every key, and
+# the words a style key takes. A rectangle is { x, y, w, h } in screen fractions.
+SCREEN_TABLES = {
+    "toast": {"position": {"top-left", "top", "top-right"}, "width": None,
+              "icon": {"circle", "square", "none"}, "style": {"glass", "plain"}},
+    "hints": {"style": {"bar", "capsule"}, "position": {"left", "center", "right"}},
+    "status": {"style": {"glass", "plain"}, "battery": None, "radios": None,
+               "clock": {"mono", "text"}, "rect": "rect"},
+    "dialog": {"width": None, "radius": None, "icon": None, "buttons": {"row", "hints"},
+               "style": {"glass", "plain"}},
+    "start": {"style": {"tiles", "control"}, "radius": None, "shortcut": None, "clock": None,
+              "area": "rect", "widgets": "rect"},
+    "menu": {"style": {"list", "context"}, "anchor": {"focus", "center"}, "width": None,
+             "row": None, "radius": None},
+    "details": {"style": {"panels", "hero"}, "shelf": None, "shot": "rect", "info": "rect",
+                "title": "rect", "subtitle": "rect", "text": "rect", "actions": "rect"},
+    "achievements": {"style": {"plain", "glass"}, "row": None, "gap": None, "badge": None,
+                     "badge_radius": None, "progress": "progress", "list": "rect"},
+    "saves": {"style": {"list", "preview"}, "row": None, "thumb": None, "list": "rect",
+              "preview": "rect"},
+    "shots": {"sections": None, "columns": None, "gap": None, "radius": None, "grid": "rect"},
+    "switcher": {"cards": {"row", "depth"}, "card": "rect", "side": "rect", "info": "rect"},
+    "resume": {"style": {"picture", "title"}, "shot": "rect", "info": "rect"},
+    "search": {"style": {"plain", "field"}, "row": None, "height": None},
+    "keyboard": {"sheet": None, "key": None},
+    "osd": {"style": {"pill", "capsule"}, "position": {"right", "left", "top", "bottom"},
+            "fill": "color", "track": "color", "radius": None},
+    "settings": {"layout": {"list", "sidebar"}, "sidebar": None, "row": None,
+                 "icon": {"plain", "tile"}, "groups": {"flat", "inset"}, "icon_colors": None},
+}
+SETTINGS_PAGES = {"network", "sound", "controls", "games", "region", "appearance",
+                  "achievements", "system", "storage"}
+STYLE_WORDS = {"shadow": {"soft", "hard", "none"}, "focus": {"pill", "lift"},
+               "motion": {"tween", "spring"}, "art_scaling": {"smooth", "pixel"},
+               "image_scaling": {"smooth", "pixel"}, "easing": {"smooth", "steps"}}
+HOME_KEYS = {"tabs", "hero", "shelves", "library", "heading", "decor"}
 COLOR = re.compile(r"^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$")
 COLOR_KEYS = {"background", "text", "accent", "accent_text", "dim", "surface",
               "surface_elevated", "border", "badge", "text_secondary", "muted",
@@ -100,6 +141,7 @@ def names(value, what: str):
 def check_layout(folder: Path, t: dict, at: str):
     """Colors, rectangles, theme images and views: the keys an [aspect.<shape>]
     table may change as well as the top level (`at` prefixes messages)."""
+    misplaced = "a top-level key written after a [table] header; move it above the first header"
     for key in COLOR_KEYS & t.keys():
         if not (isinstance(t[key], str) and COLOR.match(t[key])):
             errors.append(f"{at}{key}: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
@@ -109,7 +151,50 @@ def check_layout(folder: Path, t: dict, at: str):
         if not ok or r["x"] + r["w"] > 1 or r["y"] + r["h"] > 1:
             errors.append(f"{at}{key}: needs x, y, w, h fractions with x+w <= 1 and y+h <= 1 (else the default is used)")
     file_ref(folder, t.get("background_image"), f"{at}background_image")
-    misplaced = "a top-level key written after a [table] header; move it above the first header"
+    for key, words in STYLE_WORDS.items():
+        if key in t and t[key] not in words:
+            errors.append(f"{at}{key}: one of {', '.join(sorted(words))} (else the default is used)")
+    for key in ("shadow_color",):
+        if key in t and not (isinstance(t[key], str) and COLOR.match(t[key])):
+            errors.append(f"{at}{key}: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
+    for key, subs in (("glass", {"fill", "border", "highlight", "blur"}),
+                      ("focus_ring", {"color", "width"}), ("gradient", {"from", "to", "angle"})):
+        if key in t:
+            if not isinstance(t[key], dict):
+                errors.append(f"{at}{key}: must be an inline table {{ {', '.join(sorted(subs))} }}")
+                continue
+            for sub in t[key]:
+                if sub not in subs:
+                    warnings.append(f"{at}{key}.{sub}: unknown key")
+    for screen, spec in SCREEN_TABLES.items():
+        table = t.get(screen)
+        if table is None:
+            continue
+        if not isinstance(table, dict):
+            errors.append(f"{at}{screen}: must be a [{screen}] table")
+            continue
+        for key, value in table.items():
+            if key in THEME_TOP and key not in spec:
+                errors.append(f"{at}{screen}.{key}: {misplaced}")
+            elif key not in spec:
+                warnings.append(f"{at}{screen}.{key}: unknown key (ignored by the launcher)")
+            elif isinstance(spec[key], set) and value not in spec[key]:
+                errors.append(f"{at}{screen}.{key}: one of {', '.join(sorted(spec[key]))} (else the default is used)")
+            elif spec[key] == "color" and not (isinstance(value, str) and COLOR.match(value)):
+                errors.append(f"{at}{screen}.{key}: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
+            elif spec[key] in ("rect", "progress"):
+                if spec[key] == "progress" and isinstance(value, str):
+                    if value not in ("bar", "ring"):
+                        errors.append(f"{at}{screen}.{key}: \"bar\", \"ring\" or a rectangle")
+                    continue
+                r = value if isinstance(value, dict) else {}
+                full = all(isinstance(r.get(c), (int, float)) and 0 <= r[c] <= 1 for c in "xywh")
+                if not full or r["x"] + r["w"] > 1 or r["y"] + r["h"] > 1:
+                    errors.append(f"{at}{screen}.{key}: needs x, y, w, h fractions with x+w <= 1 and y+h <= 1")
+        if screen == "settings":
+            for name in (table.get("icon_colors") or {}):
+                if name not in SETTINGS_PAGES:
+                    warnings.append(f"{at}settings.icon_colors.{name}: unknown page")
     for name, frame in (t.get("frames") or {}).items():
         if name not in FRAMES:
             warnings.append(f"{at}frames.{name}: unknown frame name, ignored")
@@ -127,8 +212,17 @@ def check_layout(folder: Path, t: dict, at: str):
         for key in view:
             if key in THEME_TOP and key not in ("name",):
                 errors.append(f"{at}view.{vid}.{key}: a top-level key written after a [table] header; move it above the first header")
-            elif key not in ("name", "systems", "games"):
+            elif key not in ("name", "systems", "games", "home"):
                 warnings.append(f"{at}view.{vid}.{key}: unknown key")
+        home = view.get("home")
+        if isinstance(home, dict):
+            for key in home:
+                if key not in HOME_KEYS:
+                    warnings.append(f"{at}view.{vid}.home.{key}: unknown key")
+            for d in home.get("decor") or []:
+                file_ref(folder, d.get("image"), f"{at}view.{vid}.home.decor")
+        elif home is not None and not isinstance(home, bool):
+            errors.append(f"{at}view.{vid}.home: true or [view.{vid}.home.*] tables")
         for screen in ("systems", "games"):
             for key, value in (view.get(screen) or {}).items():
                 if key in THEME_TOP:
@@ -164,7 +258,7 @@ def check_theme(folder: Path):
     if "description" in t:
         names(t["description"], "description")
     misplaced = "a top-level key written after a [table] header; move it above the first header"
-    for key in ("font", "font_semibold", "font_mono", "font_mono_medium"):
+    for key in ("font", "font_semibold", "font_bold", "font_mono", "font_mono_medium"):
         file_ref(folder, t.get(key), key)
     for key, rel in (t.get("sounds") or {}).items():
         if key == "systems" and isinstance(rel, dict):

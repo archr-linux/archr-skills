@@ -27,6 +27,9 @@ Content
       redistribution (put it in the repo).
 - [ ] `accent_text` is readable on `accent`, `text_secondary` on
       `background`/frames.
+- [ ] Screen tables use only the words the launcher knows (`precheck.py`
+      reports misspelled keys and styles); `[settings.icon_colors]` names
+      only the nine pages.
 
 PC test
 - [ ] Capture test run for every view the theme defines, plus `:noart`, in
@@ -43,6 +46,19 @@ PC test
 - [ ] `cargo test -p archr-ui --test resolutions` passes with the theme
       copied into the launcher's `themes/` (removed again afterwards).
 - [ ] No "Unknown theme key" / "Invalid theme field" warnings for your keys.
+- [ ] With 3.1 keys (shelves, screen tables, `[settings]`, `[osd]`): every
+      restyled screen captured at the three sizes (themes.md, "Screens
+      restyled by 3.1 keys") and looked at: shelves, Library, Favorites,
+      games grid, game menu, details, Start, achievements, saves, captures,
+      delete-save question, switcher, resume, search, keyboard, toast,
+      Settings root, a page, Wi-Fi, a picker, and the volume OSD.
+- [ ] Shelves and a games grid on 720x720: nothing under the hints, no cut
+      row; `[aspect.square]` adjusts hero, items and `list.h`.
+- [ ] A bold face (`font_bold`) ships with the rest of its family and its
+      license.
+- [ ] The view a fresh install opens (`lista`) is the one you designed.
+- [ ] `cargo test -p archr-ui --test shipped_themes` passes with the theme in
+      `themes/`.
 
 Device test (only the user can do these)
 - [ ] Copied to `/storage/.config/archr-launcher/themes/<name>/`, selected in

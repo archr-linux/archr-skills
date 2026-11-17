@@ -4,7 +4,10 @@ Source of truth: `docs/temas.md`, `crates/archr-ui/src/theme.rs`,
 `crates/archr-ui/src/layout.rs`, `crates/archr-ui/src/settings/store.rs`
 and `crates/archr-ui/tests/resolutions.rs`
 in github.com/archr-linux/archr-launcher. Published examples:
-github.com/archr-linux/archr-theme-praia and archr-theme-retro.
+github.com/archr-linux/archr-theme-praia and archr-theme-retro. The 3.1
+reference theme, using every key added in 3.1 (sections 6, 8 and 9), is
+`themes/ellegance/` in the launcher repository: start from it for shelves,
+glass, a sidebar Settings or the capsule OSD.
 
 ## Contents
 
@@ -202,6 +205,39 @@ Animation durations are fixed by the launcher (selection 180 ms, systems to
 games 220 ms, ...); a theme picks only the curve. Users can reduce or turn
 animations off.
 
+### Shadow, glass, focus, motion, gradient (3.1)
+
+Top level, all optional; a theme that names none draws exactly as before.
+Unlike the keys above they reach Settings only when the theme reshapes it
+with `[settings]` (section 9). Bad values warn in the log and keep the default.
+
+| key | values | default | effect |
+|---|---|---|---|
+| `font_bold` | font file | none | titles (system name, game name, shelves, headings) in weight 700; without it they use the semibold |
+| `shadow_color` | color | black | colour of the `"soft"` shadow; its alpha scales the shadow |
+| `shadow_blur` | 0..0.1 | ~0.033 (16 px) | spread of the soft shadow (size, fraction of 480) |
+| `shadow_offset` | -0.05..0.05 | 8 px | how far the soft shadow drops |
+| `glass` | `{ fill, border, highlight, blur }` | white 12 %, border 20 %, highlight 25 %, no blur | the glass material a panel picks with `style = "glass"`; `blur` (fraction of 480) blurs the background image behind it, once per image |
+| `focus` | `"pill"` `"lift"` | `"pill"` | `lift`: the focused tile/card grows, gains the shadow and a ring |
+| `focus_scale` | 1..1.15 | `1.06` | growth with `lift` |
+| `focus_ring` | `{ color, width }` | accent, 2 px | the lift ring; `width` 0..8 reference px |
+| `motion` | `"tween"` `"spring"` | `"tween"` | `spring`: a critically damped spring that settles in 0.35 s and keeps its speed when the target changes (Animations On only) |
+| `gradient` | `{ from, to, angle }` | none | background of systems, games and details; `angle` 0 = left to right, 90 = top to bottom. Also valid in a view's `panel` |
+
+```toml
+font_bold = "fonts/Inter-Bold.ttf"
+shadow_color = "#000000B0"
+glass = { fill = "#FFFFFF17", border = "#FFFFFF21", highlight = "#FFFFFF29", blur = 0.05 }
+focus = "lift"
+focus_scale = 1.05
+focus_ring = { color = "#F5F5F7EB", width = 2 }
+motion = "spring"
+gradient = { from = "#121219", to = "#07070A", angle = 90 }
+```
+
+A font family is whole: a theme naming `font`, `font_semibold` or `font_bold`
+uses only its own files, so ship all three when you add a bold face.
+
 ## 7. Theme images
 
 Only on the systems, games and details screens, never in Settings. PNG or JPG.
@@ -345,6 +381,63 @@ removed with `false` (`panel = false`) and added with a table. View rectangles
 are clamped to the screen (`w` limited to `1 - x`, `h` to `1 - y`), with a
 warning.
 
+Since 3.1, also: `panel.style` (`"plain"` or `"glass"`), `panel.gradient`
+(`{ from, to, angle }` or `false`), `opacity` (0..1) on `list`, `panel`,
+`art`, `info` and `meta`, and on the games screen `list.mark = "grid"` (covers
+in a grid with the name under each; `columns` 1..8, `row` = cover height,
+`gap`, `font`, `radius`; L1/R1 change system) with `strip = { x, y, w, h }`,
+the strip of systems above the grid.
+
+### Shelves (3.1)
+
+A view can open on shelves instead of the systems list: tabs on top (Home,
+Library, Favorites), the focused item as a hero, rows of items below.
+`home = true` turns them on with the defaults; `[view.<id>.home.*]` tables
+change them (not both: TOML forbids `home` being a value and a table).
+
+```toml
+[view.lista.home.tabs]
+items = ["home", "library", "favorites"]
+rect = { x = 0.306, y = 0.029, w = 0.388, h = 0.071 }
+style = "glass"
+[view.lista.home.hero]
+rect = { x = 0.05, y = 0.154, w = 0.469, h = 0.313 }
+art = { x = 0.55, y = 0.146, w = 0.409, h = 0.313, fit = "contain" }
+backdrop = { blur = 0.108, opacity = 0.6 }
+actions = ["play", "favorite", "more"]
+title = 0.071
+[view.lista.home.shelves]
+order = ["continue", "systems", "apps"]   # also "favorites", "collections"
+y = 0.5125
+gap = 0.033
+title = 0.027
+[view.lista.home.shelves.continue]
+item = { w = 0.2625, h = 0.196, radius = 0.033 }
+progress = true
+[view.lista.home.library]                 # the Library tab's grid of systems
+rect = { x = 0.05, y = 0.233, w = 0.9, h = 0.733 }
+columns = 3
+item = 0.275
+gap = 0.029
+radius = 0.042
+[view.lista.home.heading]                 # big title of Library, Favorites and the games grid
+x = 0.05
+y = 0.117
+w = 0.9
+h = 0.092
+size = 0.0625
+```
+
+Those are the defaults (Ellegance at 640x480). `rect`, `art`,
+`library.rect`, `heading` and `item.w`/`item.h` are screen fractions; `radius`,
+`title`, `gap`, `size` and `library.item` are sizes (fraction of 480). Empty
+shelves disappear. `decor` works inside `home` too.
+
+A theme cannot pick the view a user starts on: it is `launcher.view`, `lista`
+on a fresh install. To open on the shelves by default, put them in your own
+`[view.lista]` and offer the classic list under another id (Ellegance:
+`[view.classica]`).
+
 ## 9. Fixed-screen rectangles
 
 Top-level `{ x, y, w, h }` tables, valid for every view. Each must fit on screen
@@ -385,9 +478,72 @@ start_area = { x = 0.0, y = 0.0, w = 1.0, h = 1.0 }
 Colors on these screens come from the general color keys. Text never gets
 ellipsized: it shrinks and wraps; table rows that do not fit are omitted.
 
-Fixed layouts a theme cannot move: Settings (only colors, fonts and icons
-apply there; 640 reference px wide, centered on wider screens, more rows on
-taller ones) and the ROM migration screen (always the default theme).
+Fixed layouts a theme cannot move: the ROM migration screen (always the
+default theme). Settings are 640 reference px wide, centered on wider
+screens, more rows on taller ones; until 3.0 only colors, fonts and icons
+applied there, since 3.1 `[settings]` reshapes them (below).
+
+### One table per screen (3.1)
+
+Each screen can have a top-level table, outside `[view]` (it applies to every
+view). Every key is optional and inherits from the default theme; an unknown
+key or a wrong value warns and keeps the default. Without the table, or the
+style key, the screen draws as always. The rectangles above also live here
+(`[details] shot`, `[saves] preview` = old `saves_card`, `[start] area`...);
+when both spellings appear, the table wins.
+
+| table | keys (style words) |
+|---|---|
+| `[toast]` | `position` (`top-left` `top` `top-right`), `width` (size, default 0.575), `icon` (`circle` `square` `none`), `style` (`glass` `plain`) |
+| `[hints]` | `style` (`bar` `capsule`), `position` (`left` `center` `right`); use `divider = false` in the view with the capsule |
+| `[status]` | `style` (`glass` `plain`), `battery`, `radios` (bool), `clock` (`mono` `text`), `rect` |
+| `[dialog]` | `width`, `radius`, `icon` (bool), `buttons` (`row` `hints`), `style`; destructive answers turn `danger` |
+| `[start]` | `style` (`tiles` `control`: control center over the blurred previous screen), `radius`, `shortcut`, `clock`, `area`, `widgets` |
+| `[menu]` | `style` (`list` `context`: glass card beside the focused item with Play/Favorite/Details), `anchor` (`focus` `center`), `width`, `row`, `radius` |
+| `[details]` | `style` (`panels` `hero`: full screen, blurred art, big bold title), `shelf` (bool, "More from <system>"), `shot` `info` `title` `subtitle` `text` `actions` (not used by `hero`) |
+| `[achievements]` | `progress` (rect, `"ring"`/`"bar"`, or a rect with `style`), `list`, `style` (`plain` `glass`), `row`, `gap`, `badge`, `badge_radius` |
+| `[saves]` | `style` (`list` `preview`: big 4:3 preview, slots in glass), `preview`, `list`, `row`, `thumb` |
+| `[shots]` | `sections` (bool: "This week" / "Earlier"), `columns` (0 = as many as fit), `gap`, `radius`, `grid` |
+| `[switcher]` | `cards` (`row` `depth`), `card`, `side`, `info` |
+| `[resume]` | `style` (`picture` `title`), `shot`, `info` |
+| `[search]` | `style` (`plain` `field`: glass field, results in glass, docked keyboard), `row`, `height` |
+| `[keyboard]` | `sheet` (bool: text editing on a glass sheet), `key = { h, gap, radius }` |
+| `[osd]` | `style` (`pill` `capsule`), `position` (`right` `left` `top` `bottom`), `fill`, `track` (colors), `radius` |
+| `[settings]` | `layout` (`list` `sidebar`), `sidebar = { x, w, style, title }` (x, w fractions of the 640 px Settings width), `row`, `icon` (`plain` `tile`), `groups` (`flat` `inset`), `[settings.icon_colors]` |
+
+`[settings.icon_colors]` keys: `network`, `sound`, `controls`, `games`,
+`region`, `appearance`, `achievements`, `system`, `storage` (defaults
+`#0A84FF #FF375F #30B050 #FF7A00 #5E5CE6 #BF5AF2 #D98E04 #6E6E76 #1E9BD7`).
+With any `[settings]` key off its default, the theme's style (`corners`,
+`border_width`, shadow, glass, `easing`, `motion`) and `font_bold` titles
+also apply in Settings; the focused row becomes a translucent panel with
+`focus_ring`.
+
+`[osd]`: archr-osd does not read `theme.toml`. The launcher writes the
+resolved active theme to `/run/archr-launcher/osd-theme.toml` whenever the
+appearance changes; the OSD rereads it. Its cards (battery, report, disk)
+take the theme's colors and `font`/`font_semibold`.
+
+```toml
+[start]
+style = "control"
+[menu]
+style = "context"
+[details]
+style = "hero"
+[achievements]
+progress = { x = 0.05, y = 0.11, w = 0.9, h = 0.18, style = "ring" }
+style = "glass"
+[settings]
+layout = "sidebar"
+icon = "tile"
+groups = "inset"
+[settings.icon_colors]
+network = "#0A84FF"
+[osd]
+style = "capsule"
+position = "right"
+```
 
 ## 10. Screen sizes and `[aspect.*]` tables
 
@@ -567,6 +723,26 @@ rm -r themes/mytheme
   keys and misplaced tables.
 - A capture of the systems or games screen makes a good `preview.png`.
 
+### Screens restyled by 3.1 keys
+
+The capture test above covers systems, games, details, dialog, Start and
+Appearance. The shelves and the screen tables (menu, achievements, saves,
+captures, switcher, resume, search, keyboard, toast) are drawn by
+`home_render`, and the sidebar Settings by the lib test; the launcher runs
+them for its test theme and for Ellegance. To see your theme there, copy it
+over `themes/ellegance/` in a scratch checkout (keep `[view.lista]` or set
+the view the test opens) and run:
+
+```sh
+mkdir -p /tmp/ell
+ARCHR_ELLEGANCE_CAPTURE_DIR=/tmp/ell cargo test -p archr-ui --test home_render ellegance
+ARCHR_ELLEGANCE_CAPTURE_DIR=/tmp/ell cargo test -p archr-ui --lib ellegance_draws_settings
+```
+
+They write every screen at 640x480, 720x720 and 480x320 (the golden
+comparison then fails, expected for another theme). `cargo test -p archr-ui
+--test shipped_themes` fails on any log warning a theme in `themes/` raises.
+
 ## 13. Test on the device
 
 Copy the folder to `/storage/.config/archr-launcher/themes/<name>/` (scp over
@@ -671,3 +847,12 @@ sync: push to the default branch, then release.
 - Font files, `name` and sounds inside `[aspect.*]` have no effect.
 - Shape bounds are strict: a ratio of exactly 1.2 (6:5) or exactly 1.45
   is `classic`.
+- Shelves are fractions of the screen: on 720x720 cards stretch and a third
+  shelf can fall under the hints. Ellegance shrinks the hero and the items
+  in `[aspect.square.view.lista.home.*]`; do the same.
+- A games grid draws one more row clipped at the list's bottom as a scroll
+  hint; size `list.h` so whole rows end at it (row + label + gap per row).
+- `home = true` and `[view.<id>.home.*]` in the same file is a TOML error:
+  the whole theme falls back to the default.
+- A screen table key you misspell is only a log warning; the precheck now
+  reports them.

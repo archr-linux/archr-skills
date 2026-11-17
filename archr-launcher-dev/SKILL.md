@@ -42,6 +42,9 @@ Read only what the task needs:
 
 Starting points that pass validation: `assets/theme-template/` and
 `assets/module-template/`. Copy one, rename, then edit.
+For a theme that uses the 3.1 keys (shelves, glass, focus lift, spring
+motion, one table per screen, sidebar Settings, capsule OSD), the reference
+is `themes/ellegance/` in the launcher repository (`references/themes.md`).
 
 Users can also change appearance on top of any theme (font weight, battery
 percentage, box art on/off/width/corners, switcher background, text and
