@@ -73,7 +73,7 @@ it is on ROCKNIX (nested Weston under sway); defines `pm_platform_helper`.
 `MESA_SHADER_CACHE_DIR=/var/cache/mesa`, `MESA_SHADER_CACHE_MAX_SIZE=128MB`,
 `MALI_WAYLAND_AFBC=0`, `MALI_SCHED_RT_THREAD_PRIORITY=95`,
 `DEVICE_*` (for example `DEVICE_HAS_DUAL_SCREEN=false`), and on panfrost
-`PAN_I_WANT_A_BROKEN_VULKAN_DRIVER=1`. `ARCHR_*` path variables from
+`PAN_I_WANT_A_BROKEN_VULKAN_DRIVER=1` (from `/etc/profile.d/041-panfrost`). `ARCHR_*` path variables from
 `/etc/profile.d/010-archr-fhs`.
 
 ## Standard script header

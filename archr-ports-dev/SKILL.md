@@ -13,8 +13,9 @@ a port can use is the **GPU driver** the user picked:
 - `libmali` (default): ARM blob. OpenGL ES 1.1/2.0/3.x, EGL, GBM, OpenCL in
   `libmali.so.1`. No desktop GL (`libGL.so` is `/dev/null`), no Vulkan.
 - `panfrost`: Mesa 26.2.7. OpenGL 3.1, OpenGL ES 3.1, Vulkan 1.0 (PanVK,
-  64-bit only, needs `PAN_I_WANT_A_BROKEN_VULKAN_DRIVER=1`, which the system
-  exports when panfrost is active). No OpenCL.
+  64-bit only, needs `PAN_I_WANT_A_BROKEN_VULKAN_DRIVER=1`, which
+  `/etc/profile.d/041-panfrost` exports when `/sys/module/panfrost` exists).
+  No OpenCL.
 
 Both drivers keep the same file names. At boot `gpudriver --start`
 bind-mounts the libmali files (and a GLES-only SDL2) over the Mesa ones, or

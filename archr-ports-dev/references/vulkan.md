@@ -60,8 +60,16 @@ report another version. The features are not there; experiments only.
 `panvk is not well-tested on v7, pass PAN_I_WANT_A_BROKEN_VULKAN_DRIVER=1 ...`;
 the loader then reports `Failed to detect any valid GPUs`.
 
-ArchR 3.1.0 exports `PAN_I_WANT_A_BROKEN_VULKAN_DRIVER=1` to every process
-when panfrost is the active driver. Ports must not set it themselves.
+ArchR 3.1.0 exports it from `/etc/profile.d/041-panfrost` (source:
+`distribution/projects/ArchR/packages/hardware/quirks/profile.d/041-panfrost`):
+
+```sh
+[ -d /sys/module/panfrost ] && export PAN_I_WANT_A_BROKEN_VULKAN_DRIVER=1
+```
+
+Every process started through `/etc/profile` (runemu.sh, start_*.sh, ports,
+SSH login shells) has it under panfrost; under libmali it is not set. Ports
+must not set it themselves.
 
 ## libmali
 
@@ -106,7 +114,15 @@ faults in scenes with textures. Expect rendering faults in heavier workloads.
 
 ## Emulators
 
-Each emulator has a per-system Renderer option (GLES or Vulkan, default
-GLES). Standalone start scripts read the `graphics_backend` setting
-(`start_ppsspp.sh`: `vulkan` -> `GraphicsBackend = 3 (VULKAN)`). Not relevant
-to ports, which pick their renderer themselves.
+Emulators default to GLES. Settings › Games › Renderer sets
+`graphics_backend` (`opengl` or `vulkan`) per system:
+
+- RetroArch: `setsettings.sh` `set_ra_videodriver` writes
+  `video_driver = vulkan`, or `gl` with a log line when panfrost is not
+  loaded.
+- PPSSPP standalone: `start_ppsspp.sh` -> `GraphicsBackend = 3 (VULKAN)`.
+- Flycast standalone: `start_flycast.sh` -> `pvr.rend = 4`.
+- Both standalone scripts turn `vulkan` into `opengl` when
+  `/sys/module/panfrost` is absent.
+
+Not relevant to ports, which pick their renderer themselves.

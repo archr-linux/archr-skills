@@ -43,12 +43,14 @@ Source it after `cd "$GAMEDIR"` (it uses `$PWD`).
 
 ## Environment that affects GL
 
-From `/etc/profile.d/041-panfrost` (all processes, both drivers):
+From `/etc/profile.d/041-panfrost` (all processes; the last line only
+with panfrost loaded):
 
 ```
 MESA_NO_ERROR=1
 MESA_SHADER_CACHE_DIR=/var/cache/mesa      (-> /storage/.cache/mesa_shader_cache)
 MESA_SHADER_CACHE_MAX_SIZE=128MB
+PAN_I_WANT_A_BROKEN_VULKAN_DRIVER=1      ([ -d /sys/module/panfrost ] && export ...)
 ```
 
 From `/etc/profile.d/mali-priority.sh`: `MALI_SCHED_RT_THREAD_PRIORITY=95`.
