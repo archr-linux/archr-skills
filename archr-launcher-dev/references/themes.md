@@ -223,6 +223,7 @@ with `[settings]` (section 9). Bad values warn in the log and keep the default.
 | `focus_ring` | `{ color, width }` | accent, 2 px | the lift ring; `width` 0..8 reference px |
 | `motion` | `"tween"` `"spring"` | `"tween"` | `spring`: a critically damped spring that settles in 0.35 s and keeps its speed when the target changes (Animations On only) |
 | `gradient` | `{ from, to, angle }` | none | background of systems, games and details; `angle` 0 = left to right, 90 = top to bottom. Also valid in a view's `panel` |
+| `title_tracking` | -0.1..0.1 | `0` | letter spacing of titles (text of 20 reference px and up), in em; negative tightens large type (Ellegance `-0.022`, iOS large titles ~-0.02). Body text keeps the font's spacing. Drawn glyph by glyph where the shaped line puts each, merged into one cached texture; measures and ellipses count it |
 
 ```toml
 font_bold = "fonts/Inter-Bold.ttf"
@@ -413,7 +414,6 @@ gap = 0.033
 title = 0.027
 [view.lista.home.shelves.continue]
 item = { w = 0.2625, h = 0.196, radius = 0.033 }
-progress = true
 [view.lista.home.library]                 # the Library tab's grid of systems
 rect = { x = 0.05, y = 0.233, w = 0.9, h = 0.733 }
 columns = 3
@@ -431,7 +431,14 @@ size = 0.0625
 Those are the defaults (Ellegance at 640x480). `rect`, `art`,
 `library.rect`, `heading` and `item.w`/`item.h` are screen fractions; `radius`,
 `title`, `gap`, `size` and `library.item` are sizes (fraction of 480). Empty
-shelves disappear. `decor` works inside `home` too.
+shelves disappear. `decor` works inside `home` too. There is no `progress`
+key on a shelf (removed before 3.1 shipped: the launcher has no measure of how
+far a game has gone, and a bar without one would lie); precheck warns on it.
+
+On Home, Up from the first shelf moves the focus to the hero's `actions`
+(Continue/Play, Favorite, More; a system or app only Open): Left/Right walk
+them, A presses (Continue resumes, Favorite toggles with the star in
+`warning`, More opens the game menu beside the button), Down or B go back.
 
 A theme cannot pick the view a user starts on: it is `launcher.view`, `lista`
 on a fresh install. To open on the shelves by default, put them in your own
@@ -498,18 +505,18 @@ when both spellings appear, the table wins.
 | `[hints]` | `style` (`bar` `capsule`), `position` (`left` `center` `right`); use `divider = false` in the view with the capsule |
 | `[status]` | `style` (`glass` `plain`), `battery`, `radios` (bool), `clock` (`mono` `text`), `rect` |
 | `[dialog]` | `width`, `radius`, `icon` (bool), `buttons` (`row` `hints`), `style`; destructive answers turn `danger` |
-| `[start]` | `style` (`tiles` `control`: control center over the blurred previous screen), `radius`, `shortcut`, `clock`, `area`, `widgets` |
-| `[menu]` | `style` (`list` `context`: glass card beside the focused item with Play/Favorite/Details), `anchor` (`focus` `center`), `width`, `row`, `radius` |
+| `[start]` | `style` (`tiles` `control`: control center over the blurred previous screen), `radius`, `shortcut`, `clock` (a size, or a rect with `size` inside: where the hour stands), `tiles` (rect: the three blocks), `shortcuts` (rect: the round shortcuts, centered), `area`, `widgets` |
+| `[menu]` | `style` (`list` `context`: glass card beside the focused item with Play/Favorite/Details; from Details or the hero's buttons, beside the focused button), `anchor` (`focus` `center`), `width`, `row`, `radius`, `rect` (a fixed box; the list scrolls inside) |
 | `[details]` | `style` (`panels` `hero`: full screen, blurred art, big bold title), `shelf` (bool, "More from <system>"), `shot` `info` `title` `subtitle` `text` `actions` (not used by `hero`) |
 | `[achievements]` | `progress` (rect, `"ring"`/`"bar"`, or a rect with `style`), `list`, `style` (`plain` `glass`), `row`, `gap`, `badge`, `badge_radius` |
 | `[saves]` | `style` (`list` `preview`: big 4:3 preview, slots in glass), `preview`, `list`, `row`, `thumb` |
 | `[shots]` | `sections` (bool: "This week" / "Earlier"), `columns` (0 = as many as fit), `gap`, `radius`, `grid` |
 | `[switcher]` | `cards` (`row` `depth`), `card`, `side`, `info` |
-| `[resume]` | `style` (`picture` `title`), `shot`, `info` |
-| `[search]` | `style` (`plain` `field`: glass field, results in glass, docked keyboard), `row`, `height` |
-| `[keyboard]` | `sheet` (bool: text editing on a glass sheet), `key = { h, gap, radius }` |
+| `[resume]` | `style` (`picture` `title`), `shot`, `info`, `progress` (rect: the countdown bar), `backdrop = { blur, opacity }` (the game's picture behind; blur 0 = sharp) |
+| `[search]` | `style` (`plain` `field`: glass field, results in glass, docked keyboard), `row`, `height`, `field` (rect), `results` (rect), `dock` (`bottom` `results`: the keyboard on a card right under the results, never moving) |
+| `[keyboard]` | `sheet` (bool: text editing on a glass sheet, as tall as it holds, docked over the dimmed page), `key = { h, gap, radius }` (enlarge in `[aspect.square.keyboard]`) |
 | `[osd]` | `style` (`pill` `capsule`), `position` (`right` `left` `top` `bottom`), `fill`, `track` (colors), `radius` |
-| `[settings]` | `layout` (`list` `sidebar`), `sidebar = { x, w, style, title }` (x, w fractions of the 640 px Settings width), `row`, `icon` (`plain` `tile`), `groups` (`flat` `inset`), `[settings.icon_colors]` |
+| `[settings]` | `layout` (`list` `sidebar`), `sidebar = { x, w, style, title }` (x, w fractions of the 640 px Settings width), `row`, `icon` (`plain` `tile`), `groups` (`flat` `inset`), `title` (`beside` `below`: page title 28 px bold on its own line under the "‹ Parent" capsule; the page moves down 36 px and ends where it did), `[settings.icon_colors]` |
 
 `[settings.icon_colors]` keys: `network`, `sound`, `controls`, `games`,
 `region`, `appearance`, `achievements`, `system`, `storage` (defaults
@@ -517,7 +524,14 @@ when both spellings appear, the table wins.
 With any `[settings]` key off its default, the theme's style (`corners`,
 `border_width`, shadow, glass, `easing`, `motion`) and `font_bold` titles
 also apply in Settings; the focused row becomes a translucent panel with
-`focus_ring`.
+`focus_ring`. With `groups = "inset"` Wi-Fi heads the scanned networks with
+"NETWORKS" and a spinner while it searches.
+
+Layouts adapt to the height: on 720x720 the hero details centre their block
+and stop growing the shelf, the search rows grow up to 40 %, the keyboard
+sheet keeps its own height. Glass over a dimmed screen (dialog, sheet, toast)
+gets the theme's `surface` under it. Footers of progress screens and
+achievements take `[hints]` (no rule above a capsule).
 
 `[osd]`: archr-osd does not read `theme.toml`. The launcher writes the
 resolved active theme to `/run/archr-launcher/osd-theme.toml` whenever the
@@ -538,6 +552,7 @@ style = "glass"
 layout = "sidebar"
 icon = "tile"
 groups = "inset"
+title = "below"
 [settings.icon_colors]
 network = "#0A84FF"
 [osd]
@@ -740,7 +755,11 @@ ARCHR_ELLEGANCE_CAPTURE_DIR=/tmp/ell cargo test -p archr-ui --lib ellegance_draw
 ```
 
 They write every screen at 640x480, 720x720 and 480x320 (the golden
-comparison then fails, expected for another theme). `cargo test -p archr-ui
+comparison then fails, expected for another theme). The launcher's clock is
+pinned (`Ui::pin_clock`, UTC) and each frame waits for its pictures, so every
+Ellegance frame is golden, dates and toast timers included;
+`ARCHR_GOLDEN_UPDATE=1` rewrites them. `ARCHR_SETTINGS_EVERY=1` makes the
+Settings test draw every page, to look them all over. `cargo test -p archr-ui
 --test shipped_themes` fails on any log warning a theme in `themes/` raises.
 
 ## 13. Test on the device

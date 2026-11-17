@@ -54,6 +54,15 @@ PC test
       Settings root, a page, Wi-Fi, a picker, and the volume OSD.
 - [ ] Shelves and a games grid on 720x720: nothing under the hints, no cut
       row; `[aspect.square]` adjusts hero, items and `list.h`.
+- [ ] On 720x720 also: no empty gap between search results and keyboard
+      (`[search] results`/`dock`), the keyboard sheet not stretched, the
+      details' buttons right under the description.
+- [ ] Large titles tight (`title_tracking`, about -0.02 em) and body text
+      untouched; titles still fit where they wrap or shrink.
+- [ ] With `[settings] title = "below"`: Wi-Fi, a page with sections and a
+      picker look right at the three sizes (`ARCHR_SETTINGS_EVERY=1`).
+- [ ] Hero buttons reachable (Up from the first shelf) and each does what
+      it says; no `progress` key on a shelf.
 - [ ] A bold face (`font_bold`) ships with the rest of its family and its
       license.
 - [ ] The view a fresh install opens (`lista`) is the one you designed.

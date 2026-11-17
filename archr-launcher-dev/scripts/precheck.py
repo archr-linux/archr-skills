@@ -59,7 +59,7 @@ THEME_TOP = {
     "frames", "aspect", "description", "author", "version", "license", "min_launcher",
 # 3.1: bold face, style, and one table per screen.
 "font_bold", "shadow_color", "shadow_blur", "shadow_offset", "glass", "focus",
-"focus_scale", "focus_ring", "motion", "gradient",
+"focus_scale", "focus_ring", "motion", "gradient", "title_tracking",
 "toast", "hints", "status", "dialog", "start", "menu", "details", "achievements",
 "saves", "shots", "switcher", "resume", "search", "keyboard", "osd", "settings",
 }
@@ -86,10 +86,10 @@ SCREEN_TABLES = {
                "clock": {"mono", "text"}, "rect": "rect"},
     "dialog": {"width": None, "radius": None, "icon": None, "buttons": {"row", "hints"},
                "style": {"glass", "plain"}},
-    "start": {"style": {"tiles", "control"}, "radius": None, "shortcut": None, "clock": None,
-              "area": "rect", "widgets": "rect"},
+    "start": {"style": {"tiles", "control"}, "radius": None, "shortcut": None, "clock": "clock",
+              "area": "rect", "widgets": "rect", "tiles": "rect", "shortcuts": "rect"},
     "menu": {"style": {"list", "context"}, "anchor": {"focus", "center"}, "width": None,
-             "row": None, "radius": None},
+             "row": None, "radius": None, "rect": "rect"},
     "details": {"style": {"panels", "hero"}, "shelf": None, "shot": "rect", "info": "rect",
                 "title": "rect", "subtitle": "rect", "text": "rect", "actions": "rect"},
     "achievements": {"style": {"plain", "glass"}, "row": None, "gap": None, "badge": None,
@@ -98,13 +98,16 @@ SCREEN_TABLES = {
               "preview": "rect"},
     "shots": {"sections": None, "columns": None, "gap": None, "radius": None, "grid": "rect"},
     "switcher": {"cards": {"row", "depth"}, "card": "rect", "side": "rect", "info": "rect"},
-    "resume": {"style": {"picture", "title"}, "shot": "rect", "info": "rect"},
-    "search": {"style": {"plain", "field"}, "row": None, "height": None},
+    "resume": {"style": {"picture", "title"}, "shot": "rect", "info": "rect",
+               "progress": "rect", "backdrop": "backdrop"},
+    "search": {"style": {"plain", "field"}, "row": None, "height": None, "field": "rect",
+               "results": "rect", "dock": {"bottom", "results"}},
     "keyboard": {"sheet": None, "key": None},
     "osd": {"style": {"pill", "capsule"}, "position": {"right", "left", "top", "bottom"},
             "fill": "color", "track": "color", "radius": None},
     "settings": {"layout": {"list", "sidebar"}, "sidebar": None, "row": None,
-                 "icon": {"plain", "tile"}, "groups": {"flat", "inset"}, "icon_colors": None},
+                 "icon": {"plain", "tile"}, "groups": {"flat", "inset"},
+                 "title": {"beside", "below"}, "icon_colors": None},
 }
 SETTINGS_PAGES = {"network", "sound", "controls", "games", "region", "appearance",
                   "achievements", "system", "storage"}
@@ -157,6 +160,10 @@ def check_layout(folder: Path, t: dict, at: str):
     for key in ("shadow_color",):
         if key in t and not (isinstance(t[key], str) and COLOR.match(t[key])):
             errors.append(f"{at}{key}: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
+    if "title_tracking" in t:
+        v = t["title_tracking"]
+        if not isinstance(v, (int, float)) or not -0.1 <= v <= 0.1:
+            errors.append(f"{at}title_tracking: a number from -0.1 to 0.1 (em), else 0 is used")
     for key, subs in (("glass", {"fill", "border", "highlight", "blur"}),
                       ("focus_ring", {"color", "width"}), ("gradient", {"from", "to", "angle"})):
         if key in t:
@@ -182,7 +189,15 @@ def check_layout(folder: Path, t: dict, at: str):
                 errors.append(f"{at}{screen}.{key}: one of {', '.join(sorted(spec[key]))} (else the default is used)")
             elif spec[key] == "color" and not (isinstance(value, str) and COLOR.match(value)):
                 errors.append(f"{at}{screen}.{key}: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
-            elif spec[key] in ("rect", "progress"):
+            elif spec[key] == "clock" and not isinstance(value, dict):
+                if not isinstance(value, (int, float)) or not 0.04 <= value <= 0.16:
+                    errors.append(f"{at}{screen}.{key}: a size from 0.04 to 0.16, or a rectangle with size inside")
+            elif spec[key] == "backdrop":
+                ok = isinstance(value, dict) and all(
+                    k in ("blur", "opacity") and isinstance(v, (int, float)) for k, v in value.items())
+                if not ok:
+                    errors.append(f"{at}{screen}.{key}: {{ blur, opacity }} numbers (blur 0..0.2, opacity 0..1)")
+            elif spec[key] in ("rect", "progress", "clock"):
                 if spec[key] == "progress" and isinstance(value, str):
                     if value not in ("bar", "ring"):
                         errors.append(f"{at}{screen}.{key}: \"bar\", \"ring\" or a rectangle")
@@ -192,6 +207,8 @@ def check_layout(folder: Path, t: dict, at: str):
                 if not full or r["x"] + r["w"] > 1 or r["y"] + r["h"] > 1:
                     errors.append(f"{at}{screen}.{key}: needs x, y, w, h fractions with x+w <= 1 and y+h <= 1")
         if screen == "settings":
+            if table.get("title") == "below" and table.get("layout") != "sidebar":
+                warnings.append(f"{at}settings.title: \"below\" only takes effect with layout = \"sidebar\"")
             for name in (table.get("icon_colors") or {}):
                 if name not in SETTINGS_PAGES:
                     warnings.append(f"{at}settings.icon_colors.{name}: unknown page")
@@ -221,6 +238,9 @@ def check_layout(folder: Path, t: dict, at: str):
                     warnings.append(f"{at}view.{vid}.home.{key}: unknown key")
             for d in home.get("decor") or []:
                 file_ref(folder, d.get("image"), f"{at}view.{vid}.home.decor")
+            for shelf, own in (home.get("shelves") or {}).items():
+                if isinstance(own, dict) and "progress" in own:
+                    warnings.append(f"{at}view.{vid}.home.shelves.{shelf}.progress: not a key (no progress data; removed in 3.1)")
         elif home is not None and not isinstance(home, bool):
             errors.append(f"{at}view.{vid}.home: true or [view.{vid}.home.*] tables")
         for screen in ("systems", "games"):
