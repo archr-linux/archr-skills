@@ -60,6 +60,8 @@ THEME_TOP = {
 # 3.1: bold face, style, and one table per screen.
 "font_bold", "shadow_color", "shadow_blur", "shadow_offset", "glass", "focus",
 "focus_scale", "focus_ring", "motion", "gradient", "title_tracking",
+# 3.1 later: spaced small capitals, glyph hinting, an app's screens.
+"caps_tracking", "font_hinting", "app",
 "toast", "hints", "status", "dialog", "start", "menu", "details", "achievements",
 "saves", "shots", "switcher", "resume", "search", "keyboard", "osd", "settings",
 }
@@ -81,7 +83,7 @@ KEPT = {"toml", "png", "jpg", "jpeg", "webp", "svg", "ttf", "otf", "ogg", "wav",
 SCREEN_TABLES = {
     "toast": {"position": {"top-left", "top", "top-right"}, "width": None,
               "icon": {"circle", "square", "none"}, "style": {"glass", "plain"}},
-    "hints": {"style": {"bar", "capsule"}, "position": {"left", "center", "right"}},
+    "hints": {"style": {"bar", "capsule"}, "position": {"left", "center", "right"}, "lit": None},
     "status": {"style": {"glass", "plain"}, "battery": None, "radios": None,
                "clock": {"mono", "text"}, "rect": "rect"},
     "dialog": {"width": None, "radius": None, "icon": None, "buttons": {"row", "hints"},
@@ -113,7 +115,8 @@ SETTINGS_PAGES = {"network", "sound", "controls", "games", "region", "appearance
                   "achievements", "system", "storage"}
 STYLE_WORDS = {"shadow": {"soft", "hard", "none"}, "focus": {"pill", "lift"},
                "motion": {"tween", "spring"}, "art_scaling": {"smooth", "pixel"},
-               "image_scaling": {"smooth", "pixel"}, "easing": {"smooth", "steps"}}
+               "image_scaling": {"smooth", "pixel"}, "easing": {"smooth", "steps"},
+               "font_hinting": {"mono", "light", "none"}}
 HOME_KEYS = {"tabs", "hero", "shelves", "library", "heading", "decor"}
 COLOR = re.compile(r"^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$")
 COLOR_KEYS = {"background", "text", "accent", "accent_text", "dim", "surface",
@@ -164,6 +167,25 @@ def check_layout(folder: Path, t: dict, at: str):
         v = t["title_tracking"]
         if not isinstance(v, (int, float)) or not -0.1 <= v <= 0.1:
             errors.append(f"{at}title_tracking: a number from -0.1 to 0.1 (em), else 0 is used")
+    if "caps_tracking" in t:
+        v = t["caps_tracking"]
+        if not isinstance(v, (int, float)) or not 0 <= v <= 0.3:
+            errors.append(f"{at}caps_tracking: a number from 0 to 0.3 (em), else 0 is used")
+    app = t.get("app")
+    if app is not None and not isinstance(app, dict):
+        errors.append(f"{at}app: must be an [app] table")
+    elif isinstance(app, dict):
+        for key, value in app.items():
+            if key not in SCREEN_KEYS or key == "strip":
+                warnings.append(f"{at}app.{key}: unknown key (strip does not apply to an app)")
+            elif key == "header" and value not in ("full", "compact", "large"):
+                errors.append(f"{at}app.header: one of full, compact, large")
+            elif key == "list" and isinstance(value, dict) and (
+                value.get("mark") in ("grid", "tile") or value.get("axis") == "horizontal"):
+                warnings.append(f"{at}app.list: an app's list is always vertical rows; drawn as one")
+            elif key == "decor":
+                for d in value:
+                    file_ref(folder, d.get("image"), f"{at}app.decor")
     for key, subs in (("glass", {"fill", "border", "highlight", "blur"}),
                       ("focus_ring", {"color", "width"}), ("gradient", {"from", "to", "angle"})):
         if key in t:

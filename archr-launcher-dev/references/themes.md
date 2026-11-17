@@ -94,7 +94,11 @@ black or white by contrast. Keep `accent_text` readable on `accent`.
 ### User options laid over every theme
 
 Appearance also saves several choices in `system.cfg`. None is a `theme.toml` key;
-they apply after the theme is read, so a theme cannot declare or disable them:
+they apply after the theme is read, so a theme cannot declare or disable them.
+Choosing another theme (Appearance, or Use in the Theme store) resets every
+Appearance choice to its default (as Restore defaults does) and the view to the
+theme's first: a theme always arrives as its author made it. Language,
+controls, network and sounds are not Appearance choices and stay:
 
 | option (`system.cfg`) | values | effect |
 |---|---|---|
@@ -140,6 +144,9 @@ font_mono_medium = "fonts/JetBrainsMono-Medium.ttf"
 font_scale = 1.0       # 0.5..2, multiplies every text size
 font_grid = 0          # 0..32 px; sizes snap to multiples (8 for Press Start 2P); 0 = free
 font_smoothing = true  # false = hard-edged glyphs, for pixel fonts
+font_hinting = "mono"  # "mono" (default, approved on the R36S: stems snapped both ways,
+                       # crisper but a little wider), "light" (heights only: the font's own
+                       # widths and spacing, as a browser), "none"
 font_min = 8           # 6..32 px; nothing smaller, what does not fit wraps
 ```
 
@@ -218,12 +225,13 @@ with `[settings]` (section 9). Bad values warn in the log and keep the default.
 | `shadow_blur` | 0..0.1 | ~0.033 (16 px) | spread of the soft shadow (size, fraction of 480) |
 | `shadow_offset` | -0.05..0.05 | 8 px | how far the soft shadow drops |
 | `glass` | `{ fill, border, highlight, blur }` | white 12 %, border 20 %, highlight 25 %, no blur | the glass material a panel picks with `style = "glass"`; `blur` (fraction of 480) blurs the background image behind it, once per image |
-| `focus` | `"pill"` `"lift"` | `"pill"` | `lift`: the focused tile/card grows, gains the shadow and a ring |
+| `focus` | `"pill"` `"lift"` | `"pill"` | `lift`: the focused tile/card grows, gains the shadow and a ring (tiles, shelves, library, games grid, Start blocks); a new focus rises on the theme's motion, the first of a screen is up at once |
 | `focus_scale` | 1..1.15 | `1.06` | growth with `lift` |
 | `focus_ring` | `{ color, width }` | accent, 2 px | the lift ring; `width` 0..8 reference px |
 | `motion` | `"tween"` `"spring"` | `"tween"` | `spring`: a critically damped spring that settles in 0.35 s and keeps its speed when the target changes (Animations On only) |
 | `gradient` | `{ from, to, angle }` | none | background of systems, games and details; `angle` 0 = left to right, 90 = top to bottom. Also valid in a view's `panel` |
 | `title_tracking` | -0.1..0.1 | `0` | letter spacing of titles (text of 20 reference px and up), in em; negative tightens large type (Ellegance `-0.022`, iOS large titles ~-0.02). Body text keeps the font's spacing. Drawn glyph by glyph where the shaped line puts each, merged into one cached texture; measures and ellipses count it |
+| `caps_tracking` | 0..0.3 | `0` | letter spacing (em) of the small capitals over a title: the shelves' kicker, the switcher's "2 DAYS AGO", the resume screen's "RETURNING TO", the game menu's sections. Ellegance `0.12` |
 
 ```toml
 font_bold = "fonts/Inter-Bold.ttf"
@@ -502,7 +510,7 @@ when both spellings appear, the table wins.
 | table | keys (style words) |
 |---|---|
 | `[toast]` | `position` (`top-left` `top` `top-right`), `width` (size, default 0.575), `icon` (`circle` `square` `none`), `style` (`glass` `plain`) |
-| `[hints]` | `style` (`bar` `capsule`), `position` (`left` `center` `right`); use `divider = false` in the view with the capsule |
+| `[hints]` | `style` (`bar` `capsule`), `position` (`left` `center` `right`), `lit` (bool: A's badge and label in `text`, the others in `text_secondary`); use `divider = false` in the view with the capsule. A layer (question, menu, keyboard, an app's question/keyboard) shows only its own hints at full brightness; on the keyboard sheet they sit inside the sheet |
 | `[status]` | `style` (`glass` `plain`), `battery`, `radios` (bool), `clock` (`mono` `text`), `rect` |
 | `[dialog]` | `width`, `radius`, `icon` (bool), `buttons` (`row` `hints`), `style`; destructive answers turn `danger` |
 | `[start]` | `style` (`tiles` `control`: control center over the blurred previous screen), `radius`, `shortcut`, `clock` (a size, or a rect with `size` inside: where the hour stands), `tiles` (rect: the three blocks), `shortcuts` (rect: the round shortcuts, centered), `area`, `widgets` |
@@ -651,12 +659,17 @@ PNG works best; `art_scaling = "pixel"` for pixel art.
 **App art** (API 4 modules): `systems/app-<id>.png|.jpg|.webp`, where `<id>` is
 the module id, is the carousel picture of that module's app (same lookup as
 console art: user folder, theme, default); without it the launcher uses the
-module's own `art`, then its large icon. Nothing else in `theme.toml` is
-needed: app screens reuse the active view's `games` layout (collection
-screens) and the `details_*` rectangles (detail screens: the module picture in
-`details_shot`, buttons in `details_actions`), with chips, tags, the search
-keyboard and the confirm question in the theme colors. Text is never drawn
-under 10 px.
+module's own `art`, then its large icon. App collection screens are always
+a vertical list with the focused item's picture, whatever the view (a grid or
+shelves never take it away): the theme's `[app]` table (same keys as a view's
+`games`: `header`, `divider`, `list`, `panel`, `art`, `meta`, `backdrop`,
+`decor`; no `strip`; grid/tile/horizontal lists fall back to rows) over the
+classic games layout. `header = "large"` (only in `[app]`) draws the screen's
+name large under the clock with the position at the right. App pictures are
+made at the `[app]` art's size. `[aspect.<shape>.app]` works. Detail screens
+use the `details_*` rectangles (module picture in `details_shot`, buttons in
+`details_actions`); chips, tags, the search keyboard and the confirm question
+use the theme colors. Text is never drawn under 10 px.
 
 **Sounds**: put `sounds/<event>.ogg` (Ogg Vorbis) or `.wav`, mono or stereo,
 at most 1 MiB each. No declaration needed. Events: `boot`, `move`, `page`,
