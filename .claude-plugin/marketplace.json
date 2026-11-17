@@ -11,7 +11,7 @@
     {
       "name": "archr",
       "source": "./",
-      "description": "Build, test and publish archr-launcher themes and modules."
+      "description": "Build, test and publish archr-launcher themes and modules, and build game ports for ArchR."
     }
   ]
 }

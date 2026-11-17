@@ -1,7 +1,7 @@
 {
   "name": "archr",
-  "version": "1.5.0",
-  "description": "Build, test and publish archr-launcher themes and modules for ArchR handhelds (R36S and other RK3326 devices).",
+  "version": "1.6.0",
+  "description": "Build, test and publish archr-launcher themes and modules, and build game ports, for ArchR handhelds (R36S and other RK3326 devices).",
   "author": {
     "name": "Douglas Teles",
     "url": "https://github.com/archr-linux"
@@ -9,6 +9,20 @@
   "homepage": "https://github.com/archr-linux/archr-skills",
   "repository": "https://github.com/archr-linux/archr-skills",
   "license": "MIT",
-  "keywords": ["archr", "archr-launcher", "r36s", "rk3326", "themes", "modules"],
-  "skills": ["./archr-launcher-dev/"]
+  "keywords": [
+    "archr",
+    "archr-launcher",
+    "r36s",
+    "rk3326",
+    "themes",
+    "modules",
+    "ports",
+    "portmaster",
+    "vulkan",
+    "panfrost"
+  ],
+  "skills": [
+    "./archr-launcher-dev/",
+    "./archr-ports-dev/"
+  ]
 }

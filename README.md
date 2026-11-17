@@ -6,6 +6,7 @@ Arch Linux distro for RK3326 handhelds such as the R36S.
 | Skill | What it teaches |
 |---|---|
 | [`archr-launcher-dev`](archr-launcher-dev/SKILL.md) | Create, test and publish themes and modules for archr-launcher (Rust + SDL2; 640×480, 720×720 and 480×320 screens): `theme.toml`, views, `[aspect.*]` layouts per screen shape, frames, sounds, `module.toml`, the JSON-RPC protocol, permissions, the sandbox, and the Theme and Module store rules. |
+| [`archr-ports-dev`](archr-ports-dev/SKILL.md) | Build or adapt game ports for ArchR 3.1.0: where the graphics libraries live under the libmali and panfrost drivers, OpenGL ES, desktop GL and gl4es, Vulkan (PanVK 1.0, panfrost only), OpenCL, how a port declares that it needs panfrost, the PortMaster launch environment, and a test checklist. |
 
 The skills follow the [Agent Skills](https://agentskills.io) format: a folder
 with a `SKILL.md` and the files it points to. Any coding assistant that reads
@@ -27,8 +28,9 @@ claude plugin marketplace add archr-linux/archr-skills
 claude plugin install archr@archr-skills
 ```
 
-Restart Claude Code. The skill loads when you ask for an ArchR theme or
-module, and you can also call it as `/archr:archr-launcher-dev`. To update:
+Restart Claude Code. The skills load when you ask for an ArchR theme, module
+or port, and you can also call them as `/archr:archr-launcher-dev` and
+`/archr:archr-ports-dev`. To update:
 
 ```sh
 claude plugin marketplace update archr-skills
@@ -42,7 +44,7 @@ Copy the skill folder to your personal skills folder:
 ```sh
 git clone https://github.com/archr-linux/archr-skills
 mkdir -p ~/.claude/skills
-cp -r archr-skills/archr-launcher-dev ~/.claude/skills/
+cp -r archr-skills/archr-launcher-dev archr-skills/archr-ports-dev ~/.claude/skills/
 ```
 
 For a single project, copy it to `.claude/skills/` inside that project. Other
@@ -60,6 +62,16 @@ archr-launcher-dev/
   assets/theme-template/   minimal theme that loads
   assets/module-template/  minimal module that passes --check-module
   scripts/precheck.py      static check of a theme or module folder (Python 3.11+)
+
+archr-ports-dev/
+  SKILL.md                 defaults and ground rules for ports
+  references/libraries.md  every graphics library per GPU driver, SDL2 builds, Debian paths, compat libs
+  references/graphics.md   GLES vs desktop GL, gl4es, EGL, Wayland, Mesa variables
+  references/vulkan.md     loader, ICD, version, the PanVK variable, detection, fallback
+  references/opencl.md     what exists on libmali, nothing on panfrost
+  references/panfrost.md   declaring a panfrost requirement, detecting the driver
+  references/environment.md  runemu.sh, PortMaster variables, paths, audio, input, packaging
+  references/checklist.md  tests on the console and common problems
 ```
 
 ## Limits
