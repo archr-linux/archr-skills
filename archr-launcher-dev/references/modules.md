@@ -201,6 +201,7 @@ your permission". An update that asks for more shows only the new ones.
 | `hooks = ["launch"]` | receives `launch.before` before each game (daemon) | 2 |
 | `system = ["cpu-profile"]` | may choose the CPU governor of one launch in `launch.before` | 2 |
 | `system = ["cpu-tune"]` | may choose the CPU ceiling of one launch in `launch.before`; gets `perf` in `game.ended` (section 14) | 3 |
+| `system = ["perf-limits"]` | `system.call` `cpu_max`/`gpu_max` set the ceilings of every game (kept after a restart), `gpu_bench` runs the GPU benchmark | 3 |
 | `system = ["brightness"]` / `["volume"]` / `["wifi"]` / `["screenshot"]` | `system.call` of that action | 2 |
 | `launch = true` | `game.launch` right after the user picks one of the module's actions | 2 |
 
@@ -561,6 +562,28 @@ not a speed measurement (no frame counting yet): never promise "100 % speed"
 from it, and discard sessions that are mostly idle. After every game
 `archr-launcher-session` restores the highest ceiling, even if `runemu.sh`
 was killed.
+
+### `system = ["perf-limits"]`
+
+The user's CPU and GPU ceilings for every game, and the GPU benchmark.
+Never a voltage, never a free write to `/sys`: the launcher checks the
+value and runs the image's `archr-perf-limits`, which checks it again and
+keeps `system.cpu.max_khz` / `system.gpu.max_hz` in `system.cfg`.
+
+- `initialize` carries `cpu: {opps, max_khz}` and `gpu: {opps, max_hz}`.
+- `system.call` `cpu_max` (kHz from `cpu.opps`, `0` = none) and `gpu_max`
+  (Hz from `gpu.opps`, `0` = none), one a second each: a row the user
+  presses several times must send only the last value, a second after the
+  last press, or the launcher answers `-32003` and the page and the system
+  disagree.
+- `gpu_bench` (one every 30 s): glmark2 off screen, ~10 s; the answer is
+  `{"output": "result score=<n>"}`, the only `system.call` with a result.
+- Answers to the module's own requests arrive as lines without `method`:
+  never reply `-32601` to them.
+- The ceiling holds in every game (a `cpu-tune` launch ceiling never goes
+  above it) and after a restart.
+
+Example: `archr-linux/archr-module-desempenho`.
 
 ### New page keys and row types
 

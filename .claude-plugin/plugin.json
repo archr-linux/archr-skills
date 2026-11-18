@@ -1,6 +1,6 @@
 {
   "name": "archr",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Build, test and publish archr-launcher themes and modules, and build game ports, for ArchR handhelds (R36S and other RK3326 devices).",
   "author": {
     "name": "Douglas Teles",
