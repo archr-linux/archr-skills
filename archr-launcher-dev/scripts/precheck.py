@@ -355,7 +355,7 @@ ALLOWED = {
     "config_read": READABLE,
     "config_write": {"system.cpugovernor", "global.netplay.nickname"},
     "hooks": {"launch"},
-    "system": {"cpu-profile", "cpu-tune", "perf-limits", "brightness", "volume", "wifi", "screenshot"},
+    "system": {"cpu-profile", "cpu-tune", "perf-limits", "boot-tuning", "brightness", "volume", "wifi", "screenshot"},
 }
 # API 4: systems the launcher refuses for permissions.install (already at the manifest).
 REFUSED_INSTALL = {"tools", "windows", "setup", "shell", "moonlight", "music", "idtech", "scummvm", "j2me"}
@@ -458,7 +458,7 @@ def check_module(folder: Path, offline: bool):
                 errors.append(f"permissions.{key}: {v} is not allowed")
     if api == 1 and (perms.get("launch") or any(perms.get(k) for k in ("config_write", "hooks", "system"))):
         errors.append("permissions: config_write, hooks, system and launch need api_version = 2")
-    for system in ("cpu-tune", "perf-limits"):
+    for system in ("cpu-tune", "perf-limits", "boot-tuning"):
         if system in (perms.get("system") or []) and isinstance(api, int) and api < 3:
             errors.append(f"permissions.system: {system} needs api_version = 3")
     check_app(folder, m, api, run)

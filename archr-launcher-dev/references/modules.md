@@ -202,6 +202,7 @@ your permission". An update that asks for more shows only the new ones.
 | `system = ["cpu-profile"]` | may choose the CPU governor of one launch in `launch.before` | 2 |
 | `system = ["cpu-tune"]` | may choose the CPU ceiling of one launch in `launch.before`; gets `perf` in `game.ended` (section 14) | 3 |
 | `system = ["perf-limits"]` | `system.call` `cpu_max`/`gpu_max` set the ceilings of every game (kept after a restart), `gpu_bench` runs the GPU benchmark | 3 |
+| `system = ["boot-tuning"]` | `system.call` `tuning_status`/`tuning_set`/`cpu_offset`/`tuning_reset`: CPU and GPU voltages from the next boot, with an automatic return to stock | 3 |
 | `system = ["brightness"]` / `["volume"]` / `["wifi"]` / `["screenshot"]` | `system.call` of that action | 2 |
 | `launch = true` | `game.launch` right after the user picks one of the module's actions | 2 |
 
@@ -585,6 +586,42 @@ keeps `system.cpu.max_khz` / `system.gpu.max_hz` in `system.cfg`.
 
 Example: `archr-linux/archr-module-desempenho`.
 
+### `system = ["boot-tuning"]`
+
+CPU and GPU voltages, and two extra CPU steps (1200, 1296 MHz), from the
+next boot. The image's `archr-boot-tuning` writes
+`/flash/overlays/tuning.dtbo` (never the system DTB) and lists it in
+`extlinux.conf`. Values are µV in the regulator's 12.5 mV steps; the
+launcher checks the shape, the script checks every step against the stock
+table.
+
+- `initialize` carries `boot_tuning: {cpu_offset_uv: [-50000, 25000], step_uv: 12500}`.
+- `tuning_status` (one a second): one JSON line, up to 600 bytes:
+  `{"cpu": [[MHz, chosen, stock, lowest, highest], ...], "gpu": [...],
+  "pending", "reverted", "supported"}`, voltages in mV (may end in .5).
+  chosen 0 = stock, or a new step that is off; stock 0 = a new step.
+  Build each row's choices from lowest to highest in 12.5 mV, never from
+  numbers of your own.
+- `tuning_set` `{table: "cpu" | "gpu", mhz, uv}` (one a second): one step;
+  `uv` 0 = stock voltage, or a new step off. Send the stock voltage as 0,
+  so the overlay leaves the step out.
+- `cpu_offset` (µV, one every 5 s): every CPU step the same distance from
+  its stock voltage; a new step that is on starts from the stock voltage
+  of the step above it.
+- `tuning_reset` (one every 5 s): stock voltages everywhere.
+- Writes answer `{"ok": true, "reboot": true}` or `{"ok": false, "error":
+  "out_of_range" | "no_step" | "no_stock"}`. Tell the user it takes effect
+  from the next boot; the launcher does not restart.
+- Ranges (the script's): CPU step stock -50 mV to +25 mV; a new step
+  between the stock voltages around it; GPU 1.1 V (vdd_logic's floor: it
+  also feeds the DDR) to stock (the regulator's ceiling).
+- Two boots in a row without a clean shutdown (the initramfs arms the
+  watchdog while a tuning is in place) and the next boot restores stock
+  voltages and toasts it; `reverted` says so.
+- Hide the rows when `supported` is false.
+
+Example: the "Tensões e overclock" page of `archr-linux/archr-module-desempenho` 0.3.0.
+
 ### New page keys and row types
 
 All drawn by the launcher; content comes from `ui.update` with `items` to
@@ -598,6 +635,23 @@ All drawn by the launcher; content comes from `ui.update` with `items` to
 | `open = "<page>"` | `list` row | A on an item sends its action and opens that page for that item only |
 | `alt_action`, `alt_label` | `list` row | X on an item sends `alt_action` with `context.item`; footer shows `alt_label` |
 | `icon` | `action` row | Lucide icon of the button on a detail page |
+| `aside`, `aside_note` | page | side panel: up to 3 `{title, text}` blocks and a small note at its foot |
+| `choices = []` | `value` row | choices come from the module; "…" until then |
+| `action`, `action_label` | `value` row | A sends `action.invoke` with `context: {key, value}`; footer shows `action_label` |
+| `alt_action`, `alt_label` | `value` row | X does the same with `alt_action` |
+| `type = "page"`, `page = "<id>"` | row | A opens another page of the module, B comes back; ends in › |
+
+A `value` row takes `ui.update` to `row:<key>` (its `key`, not an `id`):
+`choices` (≤ 32 texts of 1–64 bytes; a longer list is refused whole),
+`labels` (same length; text, `@key` or `{key, args}` — a subtitle with
+args needs the `@` too), `value` (one of the choices; saved without
+`settings.changed`), `badge` (`""` removes), `tone`, `subtitle` (`""`
+back to the declared one), `hidden` (any update without `hidden: true`
+shows it again). The user's ‹ › still saves and sends `settings.changed`.
+
+Where the user finds a module: a module that is on and has a page also
+shows in the **Modules** row of the library (after Tools); A opens its
+first page. Modules with an `[app]` keep their own row instead.
 
 | `type` | drawing | item fields |
 |---|---|---|
