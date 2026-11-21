@@ -113,7 +113,7 @@ SCREEN_TABLES = {
                  "title": {"beside", "below"}, "icon_colors": None},
 }
 SETTINGS_PAGES = {"network", "sound", "controls", "games", "region", "appearance",
-                  "achievements", "system", "storage"}
+                  "launcher", "achievements", "system", "storage"}
 STYLE_WORDS = {"shadow": {"soft", "hard", "none"}, "focus": {"pill", "lift"},
                "motion": {"tween", "spring"}, "art_scaling": {"smooth", "pixel"},
                "image_scaling": {"smooth", "pixel"}, "easing": {"smooth", "steps"},

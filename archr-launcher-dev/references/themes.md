@@ -528,8 +528,9 @@ when both spellings appear, the table wins.
 | `[settings]` | `layout` (`list` `sidebar`), `sidebar = { x, w, style, title }` (x, w fractions of the 640 px Settings width), `row`, `icon` (`plain` `tile`), `groups` (`flat` `inset`), `title` (`beside` `below`: page title 28 px bold on its own line under the "‹ Parent" capsule; the page moves down 36 px and ends where it did), `[settings.icon_colors]` |
 
 `[settings.icon_colors]` keys: `network`, `sound`, `controls`, `games`,
-`region`, `appearance`, `achievements`, `system`, `storage` (defaults
-`#0A84FF #FF375F #30B050 #FF7A00 #5E5CE6 #BF5AF2 #D98E04 #6E6E76 #1E9BD7`).
+`region`, `appearance`, `launcher`, `achievements`, `system`, `storage`
+(defaults `#0A84FF #FF375F #30B050 #FF7A00 #5E5CE6 #BF5AF2 #30B0C7 #D98E04
+#6E6E76 #1E9BD7`).
 With any `[settings]` key off its default, the theme's style (`corners`,
 `border_width`, shadow, glass, `easing`, `motion`) and `font_bold` titles
 also apply in Settings; the focused row becomes a translucent panel with
