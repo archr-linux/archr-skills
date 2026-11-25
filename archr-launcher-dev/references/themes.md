@@ -224,7 +224,7 @@ with `[settings]` (section 9). Bad values warn in the log and keep the default.
 | `shadow_color` | color | black | colour of the `"soft"` shadow; its alpha scales the shadow |
 | `shadow_blur` | 0..0.1 | ~0.033 (16 px) | spread of the soft shadow (size, fraction of 480) |
 | `shadow_offset` | -0.05..0.05 | 8 px | how far the soft shadow drops |
-| `glass` | `{ fill, border, highlight, blur }` | white 12 %, border 20 %, highlight 25 %, no blur | the glass material a panel picks with `style = "glass"`; `blur` (fraction of 480) blurs the background image behind it, once per image |
+| `glass` | `{ fill, border, highlight, blur }` | white 12 %, border 20 %, highlight 25 %, no blur | the glass material a panel picks with `style = "glass"`, built like the OSD volume capsule: blurred background, `fill` tint, `highlight` as a light from the top fading out over 60 % of the height (at most 70 ref px), `border` as a soft 1 px rim all around; `blur` (fraction of 480) blurs the background image behind it, once per image |
 | `focus` | `"pill"` `"lift"` | `"pill"` | `lift`: the focused tile/card grows, gains the shadow and a ring (tiles, shelves, library, games grid, Start blocks); a new focus rises on the theme's motion, the first of a screen is up at once |
 | `focus_scale` | 1..1.15 | `1.06` | growth with `lift` |
 | `focus_ring` | `{ color, width }` | accent, 2 px | the lift ring; `width` 0..8 reference px |
@@ -235,8 +235,10 @@ with `[settings]` (section 9). Bad values warn in the log and keep the default.
 
 ```toml
 font_bold = "fonts/Inter-Bold.ttf"
-shadow_color = "#000000B0"
-glass = { fill = "#FFFFFF17", border = "#FFFFFF21", highlight = "#FFFFFF29", blur = 0.05 }
+shadow_color = "#00000073"
+shadow_blur = 0.0667
+shadow_offset = 0.0167
+glass = { fill = "#1C1C22A6", border = "#FFFFFF38", highlight = "#FFFFFF29", blur = 0.05 }
 focus = "lift"
 focus_scale = 1.05
 focus_ring = { color = "#F5F5F7EB", width = 2 }
