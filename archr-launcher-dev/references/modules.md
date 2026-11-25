@@ -534,7 +534,7 @@ Needs `hooks = ["launch"]` to have any effect.
 
 - `initialize` adds `cpu: {opps, max_khz}`: the frequencies the CPU accepts
   now, in kHz, lowest first (boost ones only with boost on); `max_khz` is the
-  highest. RK3326: 408000, 816000, 1008000, 1416000, and 1512000 with turbo.
+  highest. RK3326: 600000, 816000, 1008000, 1200000, 1296000, 1416000, and 1512000 with turbo.
 - `launch.before` reply: `{"decision":"modify","changes":{"cpu_max_khz":816000}}`.
   Only a value from `cpu.opps` is accepted. The launcher passes
   `--cpu-max=<kHz>` to `runemu.sh`, which checks it against
