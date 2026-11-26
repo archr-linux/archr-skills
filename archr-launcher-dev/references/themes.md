@@ -455,7 +455,7 @@ on a fresh install. To open on the shelves by default, put them in your own
 `[view.lista]` and offer the classic list under another id (Ellegance:
 `[view.classica]`).
 
-### Free screens (`el`, since update 20261125.15; phase 2 in 20261125.16)
+### Free screens (`el`, since update 20261125.15; phase 2 in 20261125.16, phase 3 in 20261125.17)
 
 The systems and games screens of a view can be a **list of elements**
 instead of the fixed places above (`list`, `panel`, `art`, `info`...): full
@@ -522,8 +522,9 @@ Rules that bite:
   `el = []` brings the fixed places back. An `el` inside
   `[aspect.<shape>]` replaces the whole list on that shape, so prefer
   `when = { aspect = "square" }` on single elements.
-- One `list` element per screen (a second is ignored). Without one the d-pad
-  still moves through an unseen list.
+- One element per screen takes the d-pad: `list`, `carousel` or `grid`
+  (20261125.17). A second of any of them warns and is dropped. Without one
+  the d-pad still moves through an unseen list (an info line, not a warning).
 - Unknown field, wrong type or out of range: log warning, field dropped or
   clamped. Unknown `kind` or an image with no source: element dropped.
 
@@ -547,7 +548,9 @@ fractions of the **screen height** (0.035 = 17 px at 480 tall, 25 px at
 | `rect` | `fill`, `border` (colors), `radius`, `gradient` `{ from, to, angle }` |
 | `frame` | `image`, `slice` (number or `[l, t, r, b]`), `scale` (0.25..8), `tile` (9-slice over the rectangle) |
 | `panel` | `radius`, `style` (`plain`, `glass`), `gradient` |
-| `list` | `row`, `gap`, `radius`, `selected` (height or `{ height, fill, color }`), `size`, `selected_size`, `color`, `mark`, `scroll`, `cursor`, `axis`, `columns` (as the view's `list`; `tile` only on systems, `grid` only on games) |
+| `list` | `row`, `gap`, `radius`, `selected` (height or `{ height, fill, color, frame }`; `frame` = `{ image, slice, scale, tile }` 9-slice over the chosen band, 20261125.17), `size`, `selected_size`, `color`, `font` (face or theme `.ttf`, 20261125.17), `align` (`left`/`center`/`right`, 20261125.17), `loop` (20261125.17), `mark`, `scroll`, `cursor`, `axis`, `columns` (as the view's `list`; `tile` only on systems, `grid` only on games) |
+| `carousel` (20261125.17) | the screen's items in a row, column or wheel; see Collections below |
+| `grid` (20261125.17) | the screen's items in `columns` x `rows` cells; see Collections below |
 | `hints` | `align` (default `right`), `style` (`filled`, `outline`, `text`), `color`, `badge`, `letter_color` |
 | `status` | `color` (with it: icons and text straight on the screen, no pill) |
 | `rating` (20261125.16) | `game.rating` as five stars rounded to halves: `star`, `star_half`, `star_empty` (theme pictures; default the launcher's star, half = full cut over an empty, empty = full in `empty`), `color` (multiplies the full star; default theme `text` on the launcher star, none on a theme picture), `empty` (color), `empty_opacity` (0..1; 0.35, or 1 with `empty`/`star_empty`), `size` (one star's side, 0.005..0.3 of the height; default the rect height), `spacing` (0..0.2; default a fifth of a star), `align` (default `left`), `value` (may only be `"game.rating"`). No rating: nothing drawn |
@@ -605,14 +608,80 @@ and does not load its picture.
 **Reuse**: `base = "systems.hints"` (or `"hints"` on the same screen) copies
 an element of the same view; written fields override.
 
+**Collections** (20261125.17): `carousel` and `grid` draw the **screen's
+items** (systems on systems, games and folders on games) from the `item`
+template; the focus looks as `selected` says, the others at the element's
+`opacity`.
+
+```toml
+[[view.albedo.systems.el]]
+id = "wheel"
+kind = "carousel"
+of = "systems"
+axis = "vertical"
+visible = 5
+wheel = { angle = 5, pivot = [-10, 0.5] }
+item = { image = "system.logo", text = "${item.name}", color = "#FBD679", w = 0.22, h = 0.11 }
+rect = { x = 0, y = 0, w = 0.3333, h = 1 }
+opacity = 0.5
+selected = { scale = 1.375, opacity = 1 }
+loop = true
+
+[[view.grade.games.el]]
+id = "covers"
+kind = "grid"
+of = "games"
+columns = 3
+rows = 3
+rect = { x = 0.02, y = 0.17, w = 0.62, h = 0.75 }
+spacing = 0.02
+item = { image = ["game.cover", "game.screenshot"], logo = "game.logo", radius = 0.008 }
+opacity = 0.7
+selected = { scale = 1.08, opacity = 1, frame = { color = "#FFFFFF", width = 0.005, radius = 0.012 } }
+favorite = { corner = "top-right", size = 0.2 }
+```
+
+| field | values (default) | notes |
+|---|---|---|
+| `of` | `systems`, `games` | for reading only; a mismatch warns and the screen's items are used |
+| `axis` | `horizontal` (default), `vertical` | carousel: row or column |
+| `visible` | 1..15 (3) | carousel: whole items in view, the end ones fade; also the L1/R1 page |
+| `spacing` | 0..1 | carousel: distance between item middles (fraction of height in a column, of width in a row; default rect / `visible`); grid: gap between cells, fraction of height (0.02) |
+| `align` | `left`/`center`/`right` (center) | column carousel: the side of the rect |
+| `wheel` | `{ angle (-90..90, 5), pivot ([x, y], -50..50, [-3, 0.5]) }` | carousel: every item in the middle, each position turned `angle` degrees clockwise around `pivot`, in item sizes from the item's top-left |
+| `reflection` | 0..1 (0) | carousel only: lower half mirrored, fading |
+| `columns`, `rows` | 1..8 (3, 3) | grid only; rows scroll one at a time. Here `rows` is a number, not the `fields` list |
+| `opacity` | 0..1 (1) | the items out of focus |
+| `selected` | `{ scale (0.25..4, 1), opacity (1), tint, frame }` | `frame` = `{ color, width (0.001..0.05, 0.005), radius }` line behind the picture, or `{ image, slice, scale, tile }` 9-slice over it |
+| `loop` | bool (false) | last steps on to first and back |
+| `favorite` | `true`, `false`, `{ image, corner, size (0.05..1, 0.2), tint }` | games default: the launcher's star top-right; corners `top-left`, `top-right`, `bottom-left`, `bottom-right` |
+
+`item` = `{ image, logo, text, font, size, color, w, h, fit, radius, fill }`:
+`image` a source or list (default `system.logo` on systems, `game.cover` on
+games), `logo` a smaller picture over it, `text` drawn when no picture
+exists (default `${item.name}`), `w`/`h` the resting size in a carousel
+(0.01..1 screen fractions), `fit` (`contain`), `radius`, `fill` (a color box
+behind). Inside `item`, `${item}` is the item's id, `${item.name}` its name,
+and `system.*`/`game.*` are **the item's**, not the focused one's. Item
+text is drawn once at focus size and only scaled/turned while sliding.
+Animations Reduced/Off: changes at once. Focused item's pictures load first.
+
+**Navigation** on a free screen with `carousel`, `grid` or a `list` with
+`loop` (same in every theme): list or column carousel (wheel too): ↑/↓ one
+item, ←/→ and L1/R1 a page; row carousel: ↑/↓ and ←/→ one item, L1/R1 a
+page; grid: ↑/↓ a row, ←/→ one item, L1/R1 a page. A page = `visible`,
+`columns × rows`, or the rows in view; a page stops at the ends. `loop`
+wraps the one-item step; in a grid ↑/↓ stop at the first/last row. A, B, X,
+Y, Start, Select unchanged. A list without `loop` (or with `mark = "grid"`,
+where L1/R1 change system) behaves as on the fixed screens.
+
 **Appearance options**: Box art, its width and corners and System background
 do nothing on a free screen. Accent, text colors, background and text-only
 hints apply to list, hints and status when the element sets no color.
 
-**Not there yet** (keys warn and are dropped): system carousel or wheel, a
-grid with an item template (logo over it, favorite badge), video, theme
-options in Appearance, `include`,
-per-element animations, Details as a scene. Say "not available yet" instead
+**Not there yet** (keys warn and are dropped): video, theme options in
+Appearance, `include`, per-element animations (`enter`, `select`, animated
+focus color), Details as a scene. Say "not available yet" instead
 of inventing keys.
 
 **Test**: every block above is checked the launcher's way: parse it with
@@ -1080,5 +1149,9 @@ sync: push to the default branch, then release.
   usual. Pixels (`size = 18`) are clamped to the maximum.
 - An `el` inside `[aspect.square]` replaces the screen's whole list on square
   screens; use `when = { aspect = "square" }` on the elements that differ.
-- A free screen with images only and no `list` element still navigates, but
-  the user cannot see where the cursor is. Give every free screen a `list`.
+- A free screen with images only and no `list`, `carousel` or `grid` still
+  navigates, but the user cannot see where the cursor is. Give every free
+  screen exactly one of them; a second one is dropped with a warning.
+- Inside a carousel or grid `item`, `${game.name}` is that item's game, not
+  the focused one; for the focused game's name use a separate `text`
+  element outside the collection.

@@ -87,7 +87,7 @@ EL_KINDS = {
     "frame": {"image", "slice", "scale", "tile"},
     "panel": {"radius", "style", "gradient"},
     "list": {"row", "selected", "gap", "size", "selected_size", "radius", "axis", "mark", "scroll",
-             "cursor", "columns", "color"},
+             "cursor", "columns", "color", "font", "align", "loop"},
     "hints": {"align", "style", "color", "badge", "letter_color"},
     "status": {"color"},
     # Phase 2 (20261125.16): stars and a label/value card.
@@ -96,7 +96,15 @@ EL_KINDS = {
     "fields": {"star", "star_half", "star_empty", "color", "empty", "empty_opacity", "spacing",
                "align", "rows", "hide_empty", "upper_labels", "row", "font", "size", "label_font",
                "label_size", "label_color", "divider", "star_size"},
+    # Phase 3 (20261125.17): the screen's items as a carousel (row, column,
+    # wheel) or a grid, drawn from an `item` template.
+    "carousel": {"of", "item", "selected", "spacing", "loop", "favorite", "axis", "visible",
+                 "align", "wheel", "reflection"},
+    "grid": {"of", "item", "selected", "spacing", "loop", "favorite", "columns", "rows"},
 }
+# The kinds that take the d-pad: one per screen.
+EL_COLLECTIONS = {"list", "carousel", "grid"}
+EL_ITEM = {"image", "logo", "text", "font", "size", "color", "w", "h", "fit", "radius", "fill"}
 EL_WORDS = {"fit": {"contain", "cover", "stretch"}, "valign": {"top", "middle", "bottom"},
             "fit_text": {"ellipsis", "shrink"}}
 EL_ANCHORS = {"top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom",
@@ -104,7 +112,8 @@ EL_ANCHORS = {"top-left", "top", "top-right", "left", "center", "right", "bottom
 EL_DATA = {"system", "system.name", "system.fullname", "system.maker", "system.year",
            "system.count", "system.games", "system.favorites", "game.name", "game.description",
            "game.genre", "game.developer", "game.publisher", "game.year", "game.players",
-           "game.rating", "game.last_played", "list.index", "list.total", "item", "aspect"}
+           "game.rating", "game.last_played", "list.index", "list.total", "item", "item.name",
+           "aspect"}
 # Pictures, not text: valid in an image's src and in when.has, not in ${...}.
 EL_PICTURES = {"game.cover", "game.screenshot", "game.logo", "game.wheel", "game.marquee",
                "system.logo", "system.image"}
@@ -410,8 +419,11 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
         for key in item:
             if key not in EL_COMMON and key not in EL_KINDS[kind]:
                 warnings.append(f"{here}.{key}: unknown key for kind = \"{kind}\" (ignored)")
-        if kind == "list":
+        if kind in EL_COLLECTIONS:
             lists += 1
+            if lists > 1:
+                warnings.append(f"{here}: a screen has one list, carousel or grid; this one is ignored")
+                continue
         r = item.get("rect")
         if r is not None:
             if not isinstance(r, dict) or any(k not in "xywh" or not number(v) for k, v in r.items()):
@@ -425,7 +437,8 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
         for key, lo, hi in (("z", -1000, 1000), ("opacity", 0, 1), ("rotate", -360, 360),
                             ("size", 0.005 if kind == "rating" else 0.01, 0.3), ("line", 0.8, 3),
                             ("radius", 0, 0.5),
-                            ("scale", 0.25, 8), ("empty_opacity", 0, 1), ("spacing", 0, 0.2),
+                            ("scale", 0.25, 8), ("empty_opacity", 0, 1),
+                            ("spacing", 0, 1 if kind in ("carousel", "grid") else 0.2),
                             ("label_size", 0.01, 0.3), ("star_size", 0.005, 0.3)):
             v = item.get(key)
             if v is not None and (not number(v) or not lo <= v <= hi):
@@ -515,6 +528,23 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
                     warnings.append(f"{at_row}.rating: only game.rating has stars; the launcher uses it")
                 texts.append((line.get("label"), f"{at_row}.label"))
                 texts.append((line.get("value"), f"{at_row}.value"))
+        if kind == "list":
+            check_font(folder, item.get("font"), f"{here}.font")
+            if item.get("align") not in (None, "left", "center", "right"):
+                errors.append(f"{here}.align: left, center or right")
+            sel = item.get("selected")
+            if isinstance(sel, dict):
+                for key in sel:
+                    if key not in ("height", "fill", "color", "frame"):
+                        warnings.append(f"{here}.selected.{key}: unknown key (height, fill, color, frame)")
+                for key in ("fill", "color"):
+                    if key in sel and not (isinstance(sel[key], str) and COLOR.match(sel[key])):
+                        errors.append(f"{here}.selected.{key}: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
+                check_slices(folder, sel.get("frame"), f"{here}.selected.frame")
+            elif sel is not None and not number(sel):
+                errors.append(f"{here}.selected: a row height or {{ height, fill, color, frame }}")
+        if kind in ("carousel", "grid"):
+            check_collection(folder, item, kind, screen, here, texts)
         if kind == "frame":
             if not isinstance(item.get("image"), str):
                 errors.append(f"{here}.image: a theme picture; element ignored")
@@ -526,10 +556,132 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
             errors.append(f"{here}.style: filled, outline or text")
         for text, where in texts:
             check_text_data(text, where)
-    if lists > 1:
-        warnings.append(f"{at}: more than one list element; only the first is used")
     if items and lists == 0:
-        warnings.append(f"{at}: no list element; the d-pad moves through a list nobody sees")
+        warnings.append(f"{at}: no list, carousel or grid; the d-pad moves through a list nobody sees")
+
+
+def check_slices(folder: Path, frame, at: str):
+    """A nine-slice theme picture { image, slice, scale, tile }."""
+    if frame is None:
+        return
+    if not isinstance(frame, dict) or not isinstance(frame.get("image"), str):
+        errors.append(f"{at}: {{ image, slice, scale, tile }} with a theme picture")
+        return
+    for key in frame:
+        if key not in ("image", "slice", "scale", "tile"):
+            warnings.append(f"{at}.{key}: unknown key (image, slice, scale, tile)")
+    if "${" not in frame["image"]:
+        file_ref(folder, frame["image"], f"{at}.image")
+
+
+def check_collection(folder: Path, item: dict, kind: str, screen: str, here: str, texts: list):
+    """kind = "carousel" or "grid" (20261125.17)."""
+    of = item.get("of")
+    if of is not None and of != screen:
+        warnings.append(f"{here}.of: this screen's items are its {screen}; the launcher uses them")
+    if kind == "carousel":
+        if item.get("axis") not in (None, "horizontal", "vertical"):
+            errors.append(f"{here}.axis: horizontal or vertical")
+        if item.get("align") not in (None, "left", "center", "right"):
+            errors.append(f"{here}.align: left, center or right")
+        for key, lo, hi in (("visible", 1, 15), ("reflection", 0, 1)):
+            v = item.get(key)
+            if v is not None and (not number(v) or not lo <= v <= hi):
+                errors.append(f"{here}.{key}: a number from {lo} to {hi}")
+        wheel = item.get("wheel")
+        if wheel is not None:
+            if not isinstance(wheel, dict):
+                errors.append(f"{here}.wheel: {{ angle, pivot }}; ignored")
+            else:
+                for key in wheel:
+                    if key not in ("angle", "pivot"):
+                        warnings.append(f"{here}.wheel.{key}: unknown key (angle, pivot)")
+                a = wheel.get("angle")
+                if a is not None and (not number(a) or not -90 <= a <= 90):
+                    errors.append(f"{here}.wheel.angle: degrees from -90 to 90")
+                pv = wheel.get("pivot")
+                if pv is not None and not (isinstance(pv, list) and len(pv) == 2
+                                           and all(number(v) and -50 <= v <= 50 for v in pv)):
+                    errors.append(f"{here}.wheel.pivot: [x, y] in item sizes, -50 to 50")
+    else:
+        for key in ("columns", "rows"):
+            v = item.get(key)
+            if v is not None and (not number(v) or not 1 <= v <= 8):
+                errors.append(f"{here}.{key}: a number from 1 to 8")
+    sel = item.get("selected")
+    if sel is not None:
+        if not isinstance(sel, dict):
+            errors.append(f"{here}.selected: {{ scale, opacity, tint, frame }}; ignored")
+        else:
+            for key in sel:
+                if key not in ("scale", "opacity", "tint", "frame"):
+                    warnings.append(f"{here}.selected.{key}: unknown key (scale, opacity, tint, frame)")
+            for key, lo, hi in (("scale", 0.25, 4), ("opacity", 0, 1)):
+                v = sel.get(key)
+                if v is not None and (not number(v) or not lo <= v <= hi):
+                    errors.append(f"{here}.selected.{key}: a number from {lo} to {hi}")
+            if "tint" in sel and not (isinstance(sel["tint"], str) and COLOR.match(sel["tint"])):
+                errors.append(f"{here}.selected.tint: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
+            fr = sel.get("frame")
+            if isinstance(fr, dict) and "image" in fr:
+                check_slices(folder, fr, f"{here}.selected.frame")
+            elif isinstance(fr, dict):
+                for key in fr:
+                    if key not in ("color", "width", "radius"):
+                        warnings.append(f"{here}.selected.frame.{key}: unknown key (color, width, radius)")
+                if "color" in fr and not (isinstance(fr["color"], str) and COLOR.match(fr["color"])):
+                    errors.append(f"{here}.selected.frame.color: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
+                w = fr.get("width")
+                if w is not None and (not number(w) or not 0.001 <= w <= 0.05):
+                    errors.append(f"{here}.selected.frame.width: 0.001 to 0.05 of the screen height")
+            elif fr is not None:
+                errors.append(f"{here}.selected.frame: {{ color, width, radius }} or {{ image, slice }}")
+    fav = item.get("favorite")
+    if isinstance(fav, dict):
+        for key in fav:
+            if key not in ("image", "corner", "size", "tint"):
+                warnings.append(f"{here}.favorite.{key}: unknown key (image, corner, size, tint)")
+        if fav.get("corner") not in (None, "top-left", "top-right", "bottom-left", "bottom-right"):
+            errors.append(f"{here}.favorite.corner: top-left, top-right, bottom-left or bottom-right")
+        v = fav.get("size")
+        if v is not None and (not number(v) or not 0.05 <= v <= 1):
+            errors.append(f"{here}.favorite.size: 0.05 to 1 of the picture's height")
+        if isinstance(fav.get("image"), str) and "${" not in fav["image"]:
+            file_ref(folder, fav["image"], f"{here}.favorite.image")
+    elif fav is not None and not isinstance(fav, bool):
+        errors.append(f"{here}.favorite: true, false or {{ image, corner, size, tint }}")
+    tpl = item.get("item")
+    if tpl is None:
+        return
+    if not isinstance(tpl, dict):
+        errors.append(f"{here}.item: a table {{ image, logo, text, ... }}; the screen's pictures are used")
+        return
+    for key in tpl:
+        if key not in EL_ITEM:
+            warnings.append(f"{here}.item.{key}: unknown key ({', '.join(sorted(EL_ITEM))})")
+    for key in ("image", "logo"):
+        src = tpl.get(key)
+        src = [src] if isinstance(src, str) else (src if isinstance(src, list) else [])
+        for p in src:
+            if not isinstance(p, str):
+                continue
+            check_text_data(p, f"{here}.item.{key}")
+            if p not in EL_PICTURES and "${" not in p:
+                if p.startswith("/") or ".." in Path(p).parts:
+                    errors.append(f"{here}.item.{key}: {p!r} must be a relative path inside the theme")
+                elif not (folder / p).is_file():
+                    warnings.append(f"{here}.item.{key}: {p} does not exist; the item's name shows")
+    for key, lo, hi in (("w", 0.01, 1), ("h", 0.01, 1), ("radius", 0, 0.5), ("size", 0.01, 0.3)):
+        v = tpl.get(key)
+        if v is not None and (not number(v) or not lo <= v <= hi):
+            errors.append(f"{here}.item.{key}: a number from {lo} to {hi}")
+    if tpl.get("fit") not in (None, "contain", "cover", "stretch"):
+        errors.append(f"{here}.item.fit: contain, cover or stretch")
+    for key in ("color", "fill"):
+        if key in tpl and not (isinstance(tpl[key], str) and COLOR.match(tpl[key])):
+            errors.append(f"{here}.item.{key}: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
+    check_font(folder, tpl.get("font"), f"{here}.item.font")
+    texts.append((tpl.get("text"), f"{here}.item.text"))
 
 
 def check_font(folder: Path, font, at: str):

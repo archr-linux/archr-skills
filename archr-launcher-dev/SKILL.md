@@ -22,7 +22,9 @@ the launcher:
   Since update 20261125.15 the systems and games screens of a view can also
   be **free screens**: a list of `el` elements (image, text, rect, frame,
   panel, list, hints, status; since 20261125.16 also `rating` stars and a
-  `fields` card) each in its own rectangle, with system/game data and
+  `fields` card; since 20261125.17 `carousel` (row, column or wheel) and
+  `grid` drawn from an `item` template, one of list/carousel/grid per
+  screen) each in its own rectangle, with system/game data and
   pictures (`system.logo`, `system.image`, `game.cover`/`screenshot`/`logo`),
   `[vars]`, `when` and `base` (`references/themes.md`, section 8,
   "Free screens"). Nothing in a theme is executed.
@@ -56,7 +58,8 @@ For a theme that uses the 3.1 keys (shelves, glass, focus lift, spring
 motion, one table per screen, sidebar Settings, capsule OSD), the reference
 is `themes/ellegance/` in the launcher repository (`references/themes.md`).
 For a free screen (`el`), the reference is the test theme
-`crates/archr-ui/tests/themes/cena/theme.toml` (two views, Solo and Albedo).
+`crates/archr-ui/tests/themes/cena/theme.toml` (views Solo and Albedo, and
+Carrossel and Roda for the collections).
 
 Users can also change appearance on top of any theme (font weight, battery
 percentage, box art on/off/width/corners, switcher background, text and
@@ -136,7 +139,7 @@ reads, the gamepad or the R36S speed.
 - Use only keys, values, limits and method names that appear in the
   references. If the user asks for something the launcher does not offer
   (a new widget type, a permission that does not exist, and on free screens
-  a carousel or wheel, video, theme options, per-element animation or
+  video, theme options, per-element animation or
   Details as a scene), say it is not available yet instead of inventing a
   key; the launcher would silently ignore it or refuse the module.
 - Free screen (`el`) sizes (`size`, `row`, `radius`) are fractions of the
