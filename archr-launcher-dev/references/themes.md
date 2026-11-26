@@ -455,7 +455,7 @@ on a fresh install. To open on the shelves by default, put them in your own
 `[view.lista]` and offer the classic list under another id (Ellegance:
 `[view.classica]`).
 
-### Free screens (`el`, since update 20261125.15; phase 2 in 20261125.16, phase 3 in 20261125.17, phase 4 in 20261125.18)
+### Free screens (`el`, since update 20261125.15; phase 2 in 20261125.16, phase 3 in 20261125.17, phase 4 in 20261125.18, phase 5 in 20261125.19)
 
 The systems and games screens of a view can be a **list of elements**
 instead of the fixed places above (`list`, `panel`, `art`, `info`...): full
@@ -722,14 +722,96 @@ nothing decodes off screen. Decoded at the rect's shape and at most
 the details preview at any screen size. `opacity`, `rotate`, `when` work as
 usual (`when = { has = "game.video" }`: only with a clip).
 
+**Inherit a view** (20261125.19): `base = "<other view>"` at the top of
+`[view.<id>]` copies both screens of that view; `remove = [...]` in a screen
+table takes inherited elements away.
+
+```toml
+[view.solo-left]
+name = { en = "Solo, left", pt_BR = "Solo à esquerda" }
+base = "solo"                              # everything Solo has...
+
+[view.solo-left.systems]
+remove = ["band"]                          # ...except the element id "band"
+
+[[view.solo-left.systems.el]]
+id = "list"                                # same id: only these fields change
+rect = { x = 0.04, y = 0.15, w = 0.36, h = 0.68 }
+align = "left"
+
+[[view.solo-left.systems.el]]
+id = "footer"                              # new id: one more element
+kind = "text"
+text = "${system.name}"
+rect = { x = 0.04, y = 0.86, w = 0.5, h = 0.06 }
+```
+
+Same `id` = field-by-field change; new `id` = added; other screen keys
+(`list`...) merge. Chains up to 4 deep. `name` is not inherited. A `base`
+that does not exist or names the view itself warns and the view keeps only
+its own tables; `remove` of an id that was not inherited warns.
+
+**Theme options** (20261125.19): `[options.<id>]` become rows in Settings ›
+Appearance, under View (more than 3: one "Theme options" row opening a page
+with all). L/R pick a choice; the preview takes it at once; leaving
+Appearance applies it to the whole launcher with no restart.
+
+```toml
+accent = "$accent_color"                   # top-level keys take variables too
+
+[vars]
+accent_color = "#F9C440"
+art = "arts"
+
+[options.tint]
+name = { en = "Theme tint", pt_BR = "Tom do tema" }
+default = "yellow"
+choices.yellow = { name = { en = "Yellow", pt_BR = "Amarelo" } }
+choices.purple = { name = { en = "Purple", pt_BR = "Roxo" }, vars = { accent_color = "#A56DE2" } }
+
+[options.artwork]
+name = { en = "Artwork", pt_BR = "Arte" }
+default = "light"
+choices.light = { name = { en = "Light", pt_BR = "Clara" } }
+choices.dark = { name = { en = "Dark", pt_BR = "Escura" }, vars = { art = "arts-dark" } }
+```
+
+- Keys: option `name`, `default`, `choices`; choice `name`, `vars`. The
+  choice's `vars` go over `[vars]` everywhere (free screens and top-level
+  keys: `accent`, `background`, `font`...; fonts reload on leaving
+  Appearance). No `vars` = theme as is. Keep every variable a choice sets
+  also in `[vars]` (the default value).
+- `default` missing or not a choice: the first (alphabetical) choice; a
+  `default` naming no choice warns. Options and choices sort by id; ids
+  `[A-Za-z0-9_-]`. Up to 12 options, 2..24 choices each (fewer than 2: the
+  option is dropped with a warning).
+- Saved per theme in `system.cfg`: `launcher.theme_option.<theme folder>.<option>=<choice>`;
+  comes back when the theme is chosen again; Restore defaults resets them.
+- **Never name an option like an existing Appearance row** (Theme, Theme
+  store, View, Theme options, Accent color, Background, Text color, Selected
+  text color, Secondary text color, Font, Font weight, Text size,
+  Animations, Battery percentage, Text-only button hints, Notifications,
+  Box art, Box art width, Box art corners, System background, Switcher
+  background, Restore defaults; pt_BR: Cor de destaque, Fundo, Fonte...):
+  two rows with one name would do different things. Name what it changes
+  ("Theme tint", "Artwork", "Wallpaper"). precheck warns.
+
+**Include** (20261125.19): `include = ["parts/colors.toml", ...]` at the top
+of `theme.toml` (before any `[table]`). Each file reads as if written in
+`theme.toml`; `theme.toml` wins over includes, a later include over an
+earlier one. Tables merge key by key; lists (a screen's `[[...el]]`) are
+replaced whole. Nested includes up to 4 deep; cycles, `..`, absolute paths
+and missing files warn and are skipped. Paths (and pictures/fonts named in
+an included file) are relative to the theme folder. Files must be `.toml`
+(the store keeps them).
+
 **Appearance options**: Box art, its width and corners and System background
 do nothing on a free screen. Accent, text colors, background and text-only
 hints apply to list, hints and status when the element sets no color.
 
 **Not there yet** (keys warn and are dropped): video with sound, a random
-game's clip of the system on the systems screen, theme options in
-Appearance, `include`, per-element animations (`enter`, `select`, animated
-focus color), Details as a scene. Say "not available yet" instead
+game's clip of the system on the systems screen, per-element animations
+(`enter`, `select`, animated focus color), Details as a scene. Say "not available yet" instead
 of inventing keys.
 
 **Test**: every block above is checked the launcher's way: parse it with

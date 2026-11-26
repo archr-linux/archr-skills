@@ -28,7 +28,10 @@ the launcher:
   with system/game data and
   pictures (`system.logo`, `system.image`, `game.cover`/`screenshot`/`logo`),
   `[vars]`, `when` and `base` (`references/themes.md`, section 8,
-  "Free screens"). Nothing in a theme is executed.
+  "Free screens"). Since 20261125.19 a theme can also offer its own
+  `[options]` (rows in Settings › Appearance whose choices swap `[vars]`),
+  split itself into files with `include` and make a view inherit another
+  (`base`, `remove`). Nothing in a theme is executed.
 - A **module** is an external program (sh, bash + `jq`, or an aarch64 binary)
   that the launcher starts in a systemd sandbox and talks to with JSON-RPC 2.0,
   one JSON object per line on stdin/stdout. The module *declares* in
@@ -140,8 +143,7 @@ reads, the gamepad or the R36S speed.
 - Use only keys, values, limits and method names that appear in the
   references. If the user asks for something the launcher does not offer
   (a new widget type, a permission that does not exist, and on free screens
-  video, theme options, per-element animation or
-  Details as a scene), say it is not available yet instead of inventing a
+  video with sound, per-element animation or Details as a scene), say it is not available yet instead of inventing a
   key; the launcher would silently ignore it or refuse the module.
 - Free screen (`el`) sizes (`size`, `row`, `radius`) are fractions of the
   real screen height, unlike the 480 reference below, and the screen draws

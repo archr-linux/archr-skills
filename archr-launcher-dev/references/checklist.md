@@ -70,6 +70,16 @@ PC test
       clip and with Settings › Preview video off; the clip waits `delay`,
       stops on another item, a menu and a game launch; checked at the
       three sizes with `fit` and `radius`; no `mute = false`.
+- [ ] Theme options (20261125.19): every choice of every option tried in
+      Settings › Appearance (preview at once, applied on leaving, still
+      there after choosing another theme and coming back; Restore defaults
+      goes back to `default`); no option named like an Appearance row
+      (Accent color, Background, Font...) in any language; every variable
+      a choice sets also has a value in `[vars]`; with more than 3
+      options, the "Theme options" page opens and lists them all.
+- [ ] `include` files inside the theme folder, `.toml`, no cycle; an
+      inherited view (`base`) checked at the three sizes, its `remove` ids
+      really inherited, and a `name` of its own.
 - [ ] Shelves and a games grid on 720x720: nothing under the hints, no cut
       row; `[aspect.square]` adjusts hero, items and `list.h`.
 - [ ] On 720x720 also: no empty gap between search results and keyboard

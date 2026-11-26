@@ -64,9 +64,44 @@ THEME_TOP = {
 "focus_scale", "focus_ring", "motion", "gradient", "title_tracking",
 # 3.1 later: spaced small capitals, glyph hinting, an app's screens.
 "caps_tracking", "font_hinting", "app",
+# Free screens phase 5 (update 20261125.19): theme options and other files.
+"options", "include",
 "toast", "hints", "status", "header", "dialog", "start", "menu", "details", "achievements",
 "saves", "shots", "switcher", "resume", "search", "keyboard", "osd", "settings",
 }
+# The rows Settings › Appearance already has, in every language the launcher
+# ships (locales/*.toml, APPEARANCE in settings/pages.rs): an option with one
+# of these names would sit next to a row of the same name doing another thing.
+APPEARANCE_ROWS = {n.casefold() for n in (
+    "Accent color", "Akku in Prozent", "Akzentfarbe", "Ancho de la carátula", "Animaciones",
+    "Animações", "Animationen", "Animations", "Ansicht", "Avisos", "Background",
+    "Battery percentage", "Benachrichtigungen", "Box art", "Box art corners", "Box art width",
+    "Cantos da capa", "Capas", "Carátulas", "Color de énfasis", "Color del texto",
+    "Color del texto secundario", "Color del texto seleccionado", "Cor de destaque",
+    "Cor do texto", "Cor do texto secundário", "Cor do texto selecionado", "Cover",
+    "Coverbreite", "Coverecken", "Dicas de botão só em texto", "Esquinas de la carátula",
+    "Fondo", "Fondo del selector", "Fondo del sistema", "Font", "Fonte", "Font weight",
+    "Fuente", "Fundo", "Fundo do seletor", "Fundo do sistema", "Grosor de la fuente",
+    "Hintergrund", "Hintergrund des Spielwechslers", "Indicaciones de botón solo en texto",
+    "Largura da capa", "Loja de temas", "Notifications", "Opciones del tema", "Opções do tema",
+    "Peso da fonte", "Porcentagem da bateria", "Porcentaje de batería", "Restaurar padrão",
+    "Restaurar valores", "Restore defaults", "Schriftart", "Schriftstärke",
+    "Secondary text color", "Sekundäre Textfarbe", "Selected text color",
+    "Standard wiederherstellen", "Switcher background", "System background",
+    "Systemhintergrund", "Tamanho do texto", "Tamaño del texto", "Tastenhinweise nur als Text",
+    "Tema", "Text color", "Textfarbe", "Textfarbe der Auswahl", "Textgröße",
+    "Text-only button hints", "Text size", "Theme", "Theme-Optionen", "Theme options",
+    "Theme store", "Theme-Store", "Tienda de temas", "View", "Vista", "Visualização",
+    "Анимации", "Вид", "Магазин тем", "Насыщенность шрифта", "Обложки", "Параметры темы",
+    "Подсказки кнопок только текстом", "Процент заряда", "Размер текста", "Сбросить настройки",
+    "Тема", "Уведомления", "Углы обложки", "Фон", "Фон переключателя", "Фон системы",
+    "Цвет акцента", "Цвет вторичного текста", "Цвет выделенного текста", "Цвет текста",
+    "Ширина обложки", "Шрифт", "主题", "主题商店", "主题选项", "动画", "字体", "字体粗细",
+    "封面", "封面圆角", "封面宽度", "平台背景", "强调色", "恢复默认", "文字大小", "文字颜色",
+    "次要文字颜色", "游戏切换器背景", "电量百分比", "纯文字按键提示", "背景", "视图",
+    "选中文字颜色", "通知")}
+PLAIN_ID = re.compile(r"^[A-Za-z0-9_-]+$")
+MAX_OPTIONS, MAX_CHOICES, MAX_DEPTH = 12, 24, 4
 RECTS = {k for k in THEME_TOP if k.startswith(("details_", "achievements_", "saves_", "switcher_", "resume_"))} | {"shots_grid", "start_widgets", "start_area", "cover"}
 # [aspect.<shape>] tables: square below 6:5, classic 6:5 to 29:20, wide above.
 ASPECTS = {"square", "classic", "wide"}
@@ -294,15 +329,17 @@ def check_layout(folder: Path, t: dict, at: str):
             elif key not in ("image", "slice", "scale", "pad", "tile"):
                 warnings.append(f"{at}frames.{name}.{key}: unknown key")
         file_ref(folder, frame.get("image"), f"{at}frames.{name}.image")
-    for vid, view in (t.get("view") or {}).items():
+    views = t.get("view") or {}
+    for vid, view in views.items():
         if not isinstance(view, dict):
             continue
+        view = inherited_view(views, vid, view, f"{at}view.{vid}")
         if vid != "lista" and "name" in view:
             names(view["name"], f"{at}view.{vid}.name")
         for key in view:
             if key in THEME_TOP and key not in ("name",):
                 errors.append(f"{at}view.{vid}.{key}: a top-level key written after a [table] header; move it above the first header")
-            elif key not in ("name", "systems", "games", "home"):
+            elif key not in ("name", "systems", "games", "home", "base"):
                 warnings.append(f"{at}view.{vid}.{key}: unknown key")
         home = view.get("home")
         if isinstance(home, dict):
@@ -321,6 +358,8 @@ def check_layout(folder: Path, t: dict, at: str):
                 if key == "el":
                     check_scene(folder, view, screen, value, f"{at}view.{vid}.{screen}.el")
                     continue
+                if key == "remove":
+                    continue
                 # header and status are a screen's keys as well as tables.
                 if key in THEME_TOP and key not in SCREEN_KEYS:
                     errors.append(f"{at}view.{vid}.{screen}.{key}: a top-level key written after a [table] header; move it above the first header")
@@ -334,6 +373,181 @@ def check_layout(folder: Path, t: dict, at: str):
                         v = value.get(c)
                         if isinstance(v, (int, float)) and v > 1:
                             errors.append(f"{at}view.{vid}.{screen}.{key}.{c} = {v}: use a screen fraction, not pixels")
+
+
+def merge(base: dict, over: dict) -> dict:
+    """The launcher's merge: tables key by key, anything else (lists too)
+    replaced whole."""
+    out = dict(base)
+    for k, v in over.items():
+        out[k] = merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else v
+    return out
+
+
+def with_includes(folder: Path, t: dict, open_files: list) -> dict:
+    """`include = [...]`: the files under `t`, as if written in it; `t` wins,
+    and of two included files the later one. Up to 4 deep, no cycles."""
+    listed = t.pop("include", None)
+    if listed is None:
+        return t
+    names = [listed] if isinstance(listed, str) else (
+        [n for n in listed if isinstance(n, str)] if isinstance(listed, list) else [])
+    if not names:
+        warnings.append("include: must name files (\"parts/a.toml\" or a list); ignored")
+        return t
+    under: dict = {}
+    for name in names:
+        p = Path(name)
+        if p.is_absolute() or ".." in p.parts:
+            warnings.append(f"include {name!r}: must be a path inside the theme folder; ignored")
+            continue
+        path = (folder / p).resolve()
+        if not path.is_file():
+            warnings.append(f"include {name!r}: no such file in the theme folder; ignored")
+            continue
+        if path.suffix.lower() != ".toml":
+            warnings.append(f"include {name!r}: not a .toml file (the store does not install it)")
+        if path in open_files:
+            warnings.append(f"include {name!r}: includes itself again; ignored")
+            continue
+        if len(open_files) > MAX_DEPTH:
+            warnings.append(f"include {name!r}: files include others at most {MAX_DEPTH} deep; ignored")
+            continue
+        try:
+            part = tomllib.loads(path.read_text("utf-8"))
+        except (tomllib.TOMLDecodeError, UnicodeDecodeError) as e:
+            errors.append(f"{name}: not valid TOML: {e}")
+            continue
+        under = merge(under, with_includes(folder, part, open_files + [path]))
+    return merge(under, t)
+
+
+def check_options(t: dict):
+    """[options.<id>]: rows in Settings › Appearance whose choices swap [vars]."""
+    options = t.get("options")
+    if options is None:
+        return
+    if not isinstance(options, dict):
+        warnings.append("options: must hold [options.<id>] tables; ignored")
+        return
+    known = t.get("vars") if isinstance(t.get("vars"), dict) else {}
+    good = 0
+    for oid, option in sorted(options.items()):
+        at = f"options.{oid}"
+        if not PLAIN_ID.match(oid):
+            warnings.append(f"{at}: an option id has only letters, digits, _ and -; ignored")
+            continue
+        if not isinstance(option, dict):
+            warnings.append(f"{at}: must be a table; ignored")
+            continue
+        for key in option:
+            if key not in ("name", "default", "choices"):
+                warnings.append(f"{at}.{key}: unknown key (name, default, choices)")
+        choices = option.get("choices")
+        if not isinstance(choices, dict):
+            warnings.append(f"{at}: needs a choices table; ignored")
+            continue
+        ids = []
+        for cid, choice in sorted(choices.items()):
+            cat = f"{at}.choices.{cid}"
+            if not PLAIN_ID.match(cid) or not isinstance(choice, dict):
+                warnings.append(f"{cat}: must be a table under a plain id; ignored")
+                continue
+            if len(ids) == MAX_CHOICES:
+                warnings.append(f"{cat}: an option has at most {MAX_CHOICES} choices; ignored")
+                break
+            ids.append(cid)
+            for key in choice:
+                if key not in ("name", "vars"):
+                    warnings.append(f"{cat}.{key}: unknown key (name, vars)")
+            if "name" in choice:
+                names(choice["name"], f"{cat}.name")
+            else:
+                warnings.append(f"{cat}: no name; the row shows the id {cid!r}")
+            cvars = choice.get("vars", {})
+            if not isinstance(cvars, dict):
+                warnings.append(f"{cat}.vars: must be a table; ignored")
+                continue
+            for name, value in cvars.items():
+                if not isinstance(value, (str, int, float, bool)):
+                    warnings.append(f"{cat}.vars.{name}: must be text, a number or true/false; ignored")
+                elif name not in known:
+                    warnings.append(f"{cat}.vars.{name}: not in [vars]; give it a value there "
+                                    "(the one of the other choices)")
+        if len(ids) < 2:
+            warnings.append(f"{at}: needs at least two choices; ignored")
+            continue
+        if "default" in option and option["default"] not in ids:
+            warnings.append(f"{at}.default: names no choice; the first one ({ids[0]}) is used")
+        if "name" not in option:
+            warnings.append(f"{at}: no name; the Appearance row shows the id {oid!r}")
+        else:
+            names(option["name"], f"{at}.name")
+            label = option["name"]
+            labels = label.values() if isinstance(label, dict) else [label]
+            for text in labels:
+                if isinstance(text, str) and text.strip().casefold() in APPEARANCE_ROWS:
+                    warnings.append(f"{at}.name: {text!r} is already a row of Settings › Appearance; "
+                                    "two rows with one name would do different things. Name what the "
+                                    "option changes in this theme")
+        good += 1
+        if good > MAX_OPTIONS:
+            warnings.append(f"{at}: a theme has at most {MAX_OPTIONS} options; ignored")
+
+
+def inherited_view(views: dict, vid: str, view: dict, at: str, depth: int = 0) -> dict:
+    """A view with base = "<other>": the other's screens with this one's
+    tables over them (same element id: fields changed; remove = [...])."""
+    for screen in ("systems", "games"):
+        own = view.get(screen)
+        if isinstance(own, dict) and "remove" in own and "base" not in view and depth == 0:
+            warnings.append(f"{at}.{screen}.remove: only works in a view with base = \"<other view>\"")
+    base = view.get("base")
+    if base is None:
+        return view
+    if not isinstance(base, str) or base == vid or not isinstance(views.get(base), dict):
+        warnings.append(f"{at}.base: names no other view of this theme; ignored")
+        return {k: v for k, v in view.items() if k != "base"}
+    if depth >= MAX_DEPTH:
+        warnings.append(f"{at}.base: views inherit at most {MAX_DEPTH} deep; ignored")
+        return {k: v for k, v in view.items() if k != "base"}
+    out = dict(inherited_view(views, base, views[base], f"view.{base}", depth + 1))
+    out.pop("name", None)
+    out.pop("base", None)
+    for key, value in view.items():
+        if key == "base":
+            continue
+        if key in ("systems", "games") and isinstance(value, dict):
+            screen = dict(out.get(key) or {}) if isinstance(out.get(key), dict) else {}
+            elements = [dict(e) for e in screen.pop("el", []) if isinstance(e, dict)]
+            remove = value.get("remove")
+            if remove is not None:
+                listed = [r for r in remove if isinstance(r, str)] if isinstance(remove, list) else []
+                if not listed:
+                    warnings.append(f"{at}.{key}.remove: must list element ids; ignored")
+                for rid in listed:
+                    before = len(elements)
+                    elements = [e for e in elements if e.get("id") != rid]
+                    if len(elements) == before:
+                        warnings.append(f"{at}.{key}.remove: no inherited element {rid!r}")
+            for e in value.get("el") or []:
+                same = next((x for x in elements if isinstance(e, dict) and e.get("id")
+                             and x.get("id") == e.get("id")), None)
+                if same is not None:
+                    same.update(e)
+                else:
+                    elements.append(e)
+            for k, v in value.items():
+                if k not in ("el", "remove"):
+                    screen[k] = merge(screen[k], v) if isinstance(v, dict) and isinstance(screen.get(k), dict) else v
+            if elements:
+                screen["el"] = elements
+            out[key] = screen
+        elif isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = merge(out[key], value)
+        else:
+            out[key] = value
+    return out
 
 
 def substitute(node, vars: dict):
@@ -787,6 +1001,8 @@ def check_theme(folder: Path):
     except tomllib.TOMLDecodeError as e:
         errors.append(f"theme.toml: not valid TOML: {e}")
         return
+    t = with_includes(folder, t, [src.resolve()])
+    check_options(t)
     for key in t:
         if key not in THEME_TOP:
             warnings.append(f"unknown top-level key {key} (ignored by the launcher)")
