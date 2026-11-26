@@ -455,7 +455,7 @@ on a fresh install. To open on the shelves by default, put them in your own
 `[view.lista]` and offer the classic list under another id (Ellegance:
 `[view.classica]`).
 
-### Free screens (`el`, since update 20261125.15; phase 2 in 20261125.16, phase 3 in 20261125.17)
+### Free screens (`el`, since update 20261125.15; phase 2 in 20261125.16, phase 3 in 20261125.17, phase 4 in 20261125.18)
 
 The systems and games screens of a view can be a **list of elements**
 instead of the fixed places above (`list`, `panel`, `art`, `info`...): full
@@ -551,6 +551,7 @@ fractions of the **screen height** (0.035 = 17 px at 480 tall, 25 px at
 | `list` | `row`, `gap`, `radius`, `selected` (height or `{ height, fill, color, frame }`; `frame` = `{ image, slice, scale, tile }` 9-slice over the chosen band, 20261125.17), `size`, `selected_size`, `color`, `font` (face or theme `.ttf`, 20261125.17), `align` (`left`/`center`/`right`, 20261125.17), `loop` (20261125.17), `mark`, `scroll`, `cursor`, `axis`, `columns` (as the view's `list`; `tile` only on systems, `grid` only on games) |
 | `carousel` (20261125.17) | the screen's items in a row, column or wheel; see Collections below |
 | `grid` (20261125.17) | the screen's items in `columns` x `rows` cells; see Collections below |
+| `video` (20261125.18) | the focused game's or system's clip, muted: `src`, `fallback`, `fit`, `radius`, `delay`, `loop`, `mute`; see Video below |
 | `hints` | `align` (default `right`), `style` (`filled`, `outline`, `text`), `color`, `badge`, `letter_color` |
 | `status` | `color` (with it: icons and text straight on the screen, no pill) |
 | `rating` (20261125.16) | `game.rating` as five stars rounded to halves: `star`, `star_half`, `star_empty` (theme pictures; default the launcher's star, half = full cut over an empty, empty = full in `empty`), `color` (multiplies the full star; default theme `text` on the launcher star, none on a theme picture), `empty` (color), `empty_opacity` (0..1; 0.35, or 1 with `empty`/`star_empty`), `size` (one star's side, 0.005..0.3 of the height; default the rect height), `spacing` (0..0.2; default a fifth of a star), `align` (default `left`), `value` (may only be `"game.rating"`). No rating: nothing drawn |
@@ -571,7 +572,9 @@ pictures:
 
 `src = ["system.logo", "system.image"]` plus `fallback_text` gives the
 theme logo, else the built-in picture, else the name. These five are
-pictures, not text: valid in `src` and `when.has`, not in `${...}`.
+pictures, not text: valid in `src` and `when.has`, not in `${...}`. The
+clips `game.video` and `system.video` (20261125.18) are the same: valid in a
+`video`'s `src` and in `when.has`, not in `${...}` nor in an image's `src`.
 PNG, JPG, WebP, SVG; loaded off the draw thread, shrunk to at most 1.5x the
 screen and never enlarged (the screen scales smaller ones; cache
 `thumbs/scene`); the element is absent until loaded. On the systems screen
@@ -675,11 +678,56 @@ wraps the one-item step; in a grid ↑/↓ stop at the first/last row. A, B, X,
 Y, Start, Select unchanged. A list without `loop` (or with `mark = "grid"`,
 where L1/R1 change system) behaves as on the fixed screens.
 
+**Video** (20261125.18): `kind = "video"` plays one muted clip in its rect.
+
+```toml
+[[view.side.games.el]]
+kind = "video"
+src = "game.video"                        # the focused game's scraped clip
+fallback = ["game.screenshot", "game.cover"]   # before it starts, and with no clip
+rect = { x = 0.717, y = 0.425, w = 0.5, h = 0.5 }
+anchor = "center"
+fit = "cover"
+radius = 0.02
+delay = 1
+z = 6
+
+[[view.side.systems.el]]
+kind = "video"
+src = "system.video"                      # videos/<system>.mp4 in the theme folder
+fallback = "system.image"
+rect = { x = 0.72, y = 0.5, w = 0.5, h = 0.8 }
+anchor = "center"
+fit = "contain"
+loop = false                              # plays once, then the fallback
+```
+
+| field | values (default) | notes |
+|---|---|---|
+| `src` | a clip or a list | first that exists: `game.video` (scraped clip of the focused game), `system.video` (`videos/<system>.mp4` in the theme, or the alias: `megadrive` finds `genesis.mp4`) or a theme `.mp4` path with data (`videos/${system}.mp4`). Picture sources here warn and are dropped |
+| `fallback` | a picture or a list | image sources (`game.screenshot`, `system.image`, theme paths): shown before the clip starts, after it ends (`loop = false`), with no clip and with Preview video off. No `src` and no `fallback`: element dropped |
+| `fit` | `cover` (default), `contain`, `stretch` | `contain` leaves transparent bands; applies to the fallback too |
+| `radius` | 0..0.5 (0) | clip and fallback corners, fraction of the screen height |
+| `delay` | 0..10 s (1) | rest on an item before it plays (same as Game Details) |
+| `loop` | bool (true) | `false`: once, then back to the fallback |
+| `mute` | `true` only | no sound yet; `mute = false` warns and stays muted |
+
+One `video` per screen (systems or games); a second warns and is dropped.
+It uses the Game Details preview player (separate ffmpeg process, one
+decode thread, 25 fps) and follows Settings › **Preview video**: off shows
+only the fallback. It stops on another item (the next waits its `delay`),
+leaving the screen, a menu, Settings, an app over it, and a game launch;
+nothing decodes off screen. Decoded at the rect's shape and at most
+640x480's pixels; the GPU scales a bigger rect, so the RK3326 cost equals
+the details preview at any screen size. `opacity`, `rotate`, `when` work as
+usual (`when = { has = "game.video" }`: only with a clip).
+
 **Appearance options**: Box art, its width and corners and System background
 do nothing on a free screen. Accent, text colors, background and text-only
 hints apply to list, hints and status when the element sets no color.
 
-**Not there yet** (keys warn and are dropped): video, theme options in
+**Not there yet** (keys warn and are dropped): video with sound, a random
+game's clip of the system on the systems screen, theme options in
 Appearance, `include`, per-element animations (`enter`, `select`, animated
 focus color), Details as a scene. Say "not available yet" instead
 of inventing keys.

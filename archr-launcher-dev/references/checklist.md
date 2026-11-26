@@ -65,6 +65,11 @@ PC test
       shows its name; the focused item (scale, frame) stays inside the
       screen at 640x480 and 720x720; a capture taken mid-slide looks right;
       Animations Off changes at once; a favorite shows its badge.
+- [ ] Video (20261125.18): one `video` per screen; the fallback shows
+      before the clip, after it ends (`loop = false`), on a game with no
+      clip and with Settings › Preview video off; the clip waits `delay`,
+      stops on another item, a menu and a game launch; checked at the
+      three sizes with `fit` and `radius`; no `mute = false`.
 - [ ] Shelves and a games grid on 720x720: nothing under the hints, no cut
       row; `[aspect.square]` adjusts hero, items and `list.h`.
 - [ ] On 720x720 also: no empty gap between search results and keyboard

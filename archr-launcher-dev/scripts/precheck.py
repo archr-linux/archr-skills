@@ -101,6 +101,8 @@ EL_KINDS = {
     "carousel": {"of", "item", "selected", "spacing", "loop", "favorite", "axis", "visible",
                  "align", "wheel", "reflection"},
     "grid": {"of", "item", "selected", "spacing", "loop", "favorite", "columns", "rows"},
+    # Phase 4 (20261125.18): one muted clip per screen.
+    "video": {"src", "fit", "radius", "delay", "mute", "loop", "fallback"},
 }
 # The kinds that take the d-pad: one per screen.
 EL_COLLECTIONS = {"list", "carousel", "grid"}
@@ -117,6 +119,8 @@ EL_DATA = {"system", "system.name", "system.fullname", "system.maker", "system.y
 # Pictures, not text: valid in an image's src and in when.has, not in ${...}.
 EL_PICTURES = {"game.cover", "game.screenshot", "game.logo", "game.wheel", "game.marquee",
                "system.logo", "system.image"}
+# Clips: valid in a video's src and in when.has, not in ${...} nor in an image.
+EL_CLIPS = {"game.video", "system.video"}
 EL_FACES = {"regular", "semibold", "bold", "mono"}
 DATA_REF = re.compile(r"\$\{([^}]*)\}")
 FRAMES = {"header", "footer", "list", "row", "selected", "panel", "art", "button",
@@ -390,6 +394,8 @@ def check_text_data(text, at: str):
     for name in DATA_REF.findall(text):
         if name in EL_PICTURES:
             warnings.append(f"{at}: ${{{name}}} is a picture, not text; use it in an image's src")
+        elif name in EL_CLIPS:
+            warnings.append(f"{at}: ${{{name}}} is a clip, not text; use it in a video's src")
         elif name not in EL_DATA:
             warnings.append(f"{at}: unknown data ${{{name}}} (written as it is)")
 
@@ -399,7 +405,7 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
     if not isinstance(items, list) or not all(isinstance(i, dict) for i in items):
         errors.append(f"{at}: must be [[{at}]] tables")
         return
-    lists = 0
+    lists = videos = 0
     for n, item in enumerate(items):
         here = f"{at}[{n}]"
         kind = item.get("kind")
@@ -424,6 +430,9 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
             if lists > 1:
                 warnings.append(f"{here}: a screen has one list, carousel or grid; this one is ignored")
                 continue
+        if kind == "video" and videos:
+            warnings.append(f"{here}: a screen plays one video; this one is ignored")
+            continue
         r = item.get("rect")
         if r is not None:
             if not isinstance(r, dict) or any(k not in "xywh" or not number(v) for k, v in r.items()):
@@ -464,7 +473,7 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
                     if v not in ASPECTS:
                         warnings.append(f"{here}.when.aspect: unknown shape {v}")
                 for v in ([when["has"]] if isinstance(when.get("has"), str) else when.get("has") or []):
-                    if v not in EL_DATA and v not in EL_PICTURES:
+                    if v not in EL_DATA and v not in EL_PICTURES and v not in EL_CLIPS:
                         warnings.append(f"{here}.when.has: unknown data {v}")
         texts = [(item.get("text"), f"{here}.text")]
         if kind == "text":
@@ -475,8 +484,12 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
             src = item.get("src")
             src = [src] if isinstance(src, str) else (src if isinstance(src, list) else [])
             fb = item.get("fallback")
+            for p in src + ([fb] if isinstance(fb, str) else []):
+                if p in EL_CLIPS:
+                    warnings.append(f"{here}.src: {p} is a clip; use it in kind = \"video\"")
             fixed = [p for p in src + ([fb] if isinstance(fb, str) else [])
-                     if isinstance(p, str) and p and "${" not in p and p not in EL_PICTURES]
+                     if isinstance(p, str) and p and "${" not in p and p not in EL_PICTURES
+                     and p not in EL_CLIPS]
             for p in fixed:
                 if p.startswith("/") or ".." in Path(p).parts:
                     errors.append(f"{here}: {p!r} must be a relative path inside the theme")
@@ -545,6 +558,8 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
                 errors.append(f"{here}.selected: a row height or {{ height, fill, color, frame }}")
         if kind in ("carousel", "grid"):
             check_collection(folder, item, kind, screen, here, texts)
+        if kind == "video" and check_video(folder, item, here):
+            videos += 1
         if kind == "frame":
             if not isinstance(item.get("image"), str):
                 errors.append(f"{here}.image: a theme picture; element ignored")
@@ -558,6 +573,55 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
             check_text_data(text, where)
     if items and lists == 0:
         warnings.append(f"{at}: no list, carousel or grid; the d-pad moves through a list nobody sees")
+
+
+def check_video(folder: Path, item: dict, here: str) -> bool:
+    """kind = "video" (20261125.18). False when the launcher drops it."""
+    def sources(key):
+        v = item.get(key)
+        if v is None:
+            return []
+        if isinstance(v, str):
+            return [v]
+        if isinstance(v, list):
+            return [s for s in v if isinstance(s, str)]
+        warnings.append(f"{here}.{key}: a source or a list of them; ignored")
+        return []
+    src, still = [], []
+    for p in sources("src"):
+        if p in EL_CLIPS:
+            src.append(p)
+        elif p in EL_PICTURES or p in EL_DATA:
+            warnings.append(f"{here}.src: {p} is no clip (game.video, system.video or a file); ignored")
+        elif not p or p.startswith("/") or ".." in Path(p).parts:
+            warnings.append(f"{here}.src: {p!r} must be a path inside the theme; ignored")
+        else:
+            src.append(p)
+            if "${" not in p and not (folder / p).is_file():
+                warnings.append(f"{here}.src: {p} does not exist in the theme")
+    for p in sources("fallback"):
+        if p in EL_CLIPS:
+            warnings.append(f"{here}.fallback: {p} is a clip; the fallback is a picture")
+        elif p in EL_PICTURES:
+            still.append(p)
+        elif not p or p.startswith("/") or ".." in Path(p).parts:
+            warnings.append(f"{here}.fallback: {p!r} must be a path inside the theme; ignored")
+        else:
+            still.append(p)
+            if "${" not in p and not (folder / p).is_file():
+                warnings.append(f"{here}.fallback: {p} does not exist in the theme")
+    if not src and not still:
+        errors.append(f"{here}.src: names no video; element ignored")
+        return False
+    if item.get("mute") is False:
+        warnings.append(f"{here}.mute = false: videos play without sound for now; muted")
+    for key in ("mute", "loop"):
+        if key in item and not isinstance(item[key], bool):
+            errors.append(f"{here}.{key}: true or false")
+    d = item.get("delay")
+    if d is not None and (not number(d) or not 0 <= d <= 10):
+        errors.append(f"{here}.delay: seconds, a number from 0 to 10")
+    return True
 
 
 def check_slices(folder: Path, frame, at: str):

@@ -24,7 +24,8 @@ the launcher:
   panel, list, hints, status; since 20261125.16 also `rating` stars and a
   `fields` card; since 20261125.17 `carousel` (row, column or wheel) and
   `grid` drawn from an `item` template, one of list/carousel/grid per
-  screen) each in its own rectangle, with system/game data and
+  screen; since 20261125.18 one muted `video`) each in its own rectangle,
+  with system/game data and
   pictures (`system.logo`, `system.image`, `game.cover`/`screenshot`/`logo`),
   `[vars]`, `when` and `base` (`references/themes.md`, section 8,
   "Free screens"). Nothing in a theme is executed.
