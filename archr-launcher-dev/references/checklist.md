@@ -23,6 +23,10 @@ Content
       exact case.
 - [ ] Only store-kept file types: `toml png jpg jpeg webp svg ttf otf ogg wav
       txt md` and `LICENSE`. Sounds at most 1 MiB each.
+- [ ] Converted with `archr-es2theme`: `CONVERSAO.md` read and its items
+      fixed or accepted, `es`/`ru` names added, the original's license in
+      `original/` allows redistribution (no NC theme without the author's
+      written permission), and the credits kept (`original/` or the README).
 - [ ] Fonts cover Latin accents and Cyrillic; their license allows
       redistribution (put it in the repo).
 - [ ] `accent_text` is readable on `accent`, `text_secondary` on

@@ -1,8 +1,9 @@
 # Themes reference
 
 Source of truth: `docs/temas.md`, `crates/archr-ui/src/theme.rs`,
-`crates/archr-ui/src/layout.rs`, `crates/archr-ui/src/layout/scene.rs`, `crates/archr-ui/src/settings/store.rs`
-and `crates/archr-ui/tests/resolutions.rs`
+`crates/archr-ui/src/layout.rs`, `crates/archr-ui/src/layout/scene.rs`, `crates/archr-ui/src/settings/store.rs`,
+`crates/archr-ui/tests/resolutions.rs` and, for the EmulationStation theme
+converter, `crates/archr-es2theme`
 in github.com/archr-linux/archr-launcher. Published examples:
 github.com/archr-linux/archr-theme-praia and archr-theme-retro. The 3.1
 reference theme, using every key added in 3.1 (sections 6, 8 and 9), is
@@ -22,7 +23,7 @@ glass, a sidebar Settings or the capsule OSD.
 9. Fixed-screen rectangles (details, achievements, saves, switcher...)
 10. Screen sizes and `[aspect.*]` tables
 11. Icons, console art, sounds
-12. Test on a PC
+12. Test on a PC (and converting an EmulationStation theme)
 13. Test on the device
 14. Publish to the Theme store
 15. Pitfalls
@@ -1317,6 +1318,79 @@ Ellegance frame is golden, dates and toast timers included;
 `ARCHR_GOLDEN_UPDATE=1` rewrites them. `ARCHR_SETTINGS_EVERY=1` makes the
 Settings test draw every page, to look them all over. `cargo test -p archr-ui
 --test shipped_themes` fails on any log warning a theme in `themes/` raises.
+
+### Start from an EmulationStation theme (`archr-es2theme`)
+
+The launcher repository has a PC tool that converts an EmulationStation theme
+into a free-screen theme folder (`docs/temas.md`, "Converter um tema do
+EmulationStation"). The launcher itself never reads XML. It reads the classic
+XML format (`theme.xml`, `formatVersion 7`, subsets, `customView`); themes in
+the newer layout (`capabilities.xml`, `variant`, `colorScheme`,
+`aspectRatio`) go through the same path with less coverage.
+
+```sh
+cargo run --release -p archr-es2theme -- \
+  <ES theme folder> <output folder> --lang pt --name "Name"
+```
+
+- `--lang` picks the original's texts (`en`, `pt`, `es`...); option names
+  come out in `en` and `pt_BR` when the theme has both. Add `es` and `ru`
+  by hand before publishing. `--name` is the theme name shown in Appearance.
+- Output, ready for `/storage/.config/archr-launcher/themes/` or the store:
+  `theme.toml` (name, license, header colors, `include` of the parts),
+  `parts/vars.toml` (variables, `[aspect.<shape>.vars]`), `parts/options.toml`
+  (one option per subset that changes something), `parts/view-<id>.toml`
+  (one view per ES view: `detailed`, `grid`, each `customView`), the art and
+  fonts at the original paths, `logos/`, `original/` (LICENSE, README,
+  credits) and `CONVERSAO.md`, the report of what became what, what was left
+  out and the launcher's warnings.
+- At the end it loads the result with the launcher's theme reader at
+  640x480, 720x720, 1024x768 and 854x480 with every choice of every option;
+  exit code 0 = no warning, 2 = warnings (printed and in the report),
+  1 = error.
+- How it reads: follows `include` (with `lang`), `${var}`, subsets and
+  `ifSubset` (`ifHelpPrompts` true, `ifArch` false), merges elements by name.
+  One reading per screen shape (aspect subset on the closest choice: 4:3
+  `classic`, 1:1 `square`, 16:9 `wide`) and per choice of every other subset;
+  what differs becomes `[aspect.<shape>.vars]` or `[options.<id>]`; an
+  element that changes with both is written once per shape (`when.aspect`).
+- Mapping: `pos/size/maxSize/minSize/origin` -> `rect`, `anchor`, `fit`
+  (`contain`, `cover`, `stretch`); `zIndex/rotation/rotationOrigin/opacity`
+  -> `z`, `rotate`, `pivot`, `opacity` (invisible left out); `image` with
+  `${system.theme}` -> `image` with a `src` list and `${system}`; `image`
+  with `tile` -> `frame` with `slice = 0`, `tile = true`;
+  `text/datetime/md_*` -> `text` with `${game.*}`, `${system.*}` or
+  `@phrase`; `textlist` -> `list`; `imagegrid`/`gridtile` -> `grid` (or
+  `carousel` when one row/column); ES `carousel` -> system `carousel`
+  (`wheel`); `md_image/md_marquee/md_video/md_rating` -> `image`, `video`,
+  `rating`; `helpsystem` -> `hints`; `clock`/`batteryIndicator` -> `status`;
+  `storyboard` -> `enter`; `ninepatch` -> `frame`. Each view's details
+  screen is the games screen with cover, card and buttons in place of the
+  list, the description scrolling with up/down.
+- Left out (listed in the report): sounds and music, the ES `menu` screen,
+  `splash`, `{random}` video/picture, files outside the theme (`~/roms/...`,
+  `:/...`), video inside the grid, tile `:selected`/`:videoplaying` states,
+  `animateColor`, the name under grid tiles, `controllerActivity`, play
+  count. Release date becomes the year; hints use the launcher's letters.
+  Elements ES draws without the theme naming them are not created.
+- The result is a starting point: fonts, list row height and `${system}`
+  pictures (the original's system names) often need hand fixes. Render it
+  (systems, games and details of each view at 640x480, 720x720, 1024x768):
+
+```sh
+ARCHR_ES2THEME_RENDER=<output folder> ARCHR_ES2THEME_SHOTS=/tmp/es-shots \
+cargo test -p archr-es2theme --test render
+# ARCHR_ES2THEME_CHOICES=option=choice,... picks theme options
+```
+
+  Then `scripts/precheck.py` and the device test, as for any theme.
+- License: the converter ships no art; it copies the original's art, fonts
+  and logos, keeps license and credits in `original/` and sets `license` in
+  `theme.toml` to the original's. The converted theme keeps the original's
+  license. A non-commercial theme (CC BY-NC, CC BY-NC-SA) must not be
+  redistributed (Arch R images, Theme store) without the author's written
+  permission; tell the user so and do not publish it for them. System logos
+  are their makers' trademarks.
 
 ## 13. Test on the device
 

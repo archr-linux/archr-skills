@@ -36,6 +36,8 @@ the launcher:
   Since 20261125.21 the game's details can be a free screen too
   (`[[view.<id>.details.el]]`, or `base = "games"` + `remove`), with
   `kind = "actions"` (its buttons) and `long_text = "scroll"`.
+  An EmulationStation theme can be converted into one on the PC with
+  `archr-es2theme` (`references/themes.md`, section 12).
   Nothing in a theme is executed.
 - A **module** is an external program (sh, bash + `jq`, or an aarch64 binary)
   that the launcher starts in a systemd sandbox and talks to with JSON-RPC 2.0,
@@ -150,6 +152,11 @@ reads, the gamepad or the R36S speed.
   (a new widget type, a permission that does not exist, and on free screens
   video with sound or text that scrolls by itself), say it is not available yet instead of inventing a
   key; the launcher would silently ignore it or refuse the module.
+- To bring over an EmulationStation theme, run `archr-es2theme` instead of
+  rewriting it by hand, read `CONVERSAO.md`, fix what it lists and check the
+  license in `original/` before offering to publish: a converted theme keeps
+  the original's license, and a non-commercial (NC) theme is not
+  redistributed without the author's written permission.
 - Free screen (`el`) sizes (`size`, `row`, `radius`) are fractions of the
   real screen height, unlike the 480 reference below, and the screen draws
   only its elements: add `hints` and `status` yourself. Prefer `@phrase`
