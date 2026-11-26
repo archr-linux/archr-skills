@@ -89,6 +89,15 @@ PC test
       the d-pad held changes at once; a press during the animation
       answers at once; a collection's `selected` color fades with the
       focus.
+- [ ] Details screen (20261125.21), at the three sizes: a game with a
+      logo and one without (the `fallback_text` name fits, no empty box);
+      a description long enough to scroll: ↑/↓ move one line, the last
+      line faded while there is more, not faded at the end, and short
+      descriptions show no scroll arrow in the hints; with `actions`,
+      L1/R1 move the lit button and A does the lit action (Play,
+      Favorite, Scrape again); Y opens the game menu, B goes back; with
+      `base = "games"`, nothing of the list left over (`remove`); the
+      clip plays and stops like the classic preview.
 - [ ] Shelves and a games grid on 720x720: nothing under the hints, no cut
       row; `[aspect.square]` adjusts hero, items and `list.h`.
 - [ ] On 720x720 also: no empty gap between search results and keyboard

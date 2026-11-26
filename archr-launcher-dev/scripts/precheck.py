@@ -122,7 +122,8 @@ EL_TEXT = {"text", "font", "size", "color", "align", "valign", "upper", "shadow"
            "fit_text"}
 EL_KINDS = {
     "image": {"src", "fit", "align", "tint", "radius", "fallback", "fallback_text"},
-    "text": EL_TEXT,
+    # long_text = "scroll" (20261125.21): only on the details screen.
+    "text": EL_TEXT | {"long_text"},
     "rect": {"fill", "border", "radius", "gradient"},
     "frame": {"image", "slice", "scale", "tile"},
     "panel": {"radius", "style", "gradient"},
@@ -143,6 +144,9 @@ EL_KINDS = {
     "grid": {"of", "item", "selected", "spacing", "loop", "favorite", "columns", "rows"},
     # Phase 4 (20261125.18): one muted clip per screen.
     "video": {"src", "fit", "radius", "delay", "mute", "loop", "fallback"},
+    # Phase 7 (20261125.21): the details' buttons (Play, Favorite, Scrape
+    # again), only on the details screen; no fields of its own.
+    "actions": set(),
 }
 # The kinds that take the d-pad: one per screen.
 EL_COLLECTIONS = {"list", "carousel", "grid"}
@@ -342,9 +346,11 @@ def check_layout(folder: Path, t: dict, at: str):
         if vid != "lista" and "name" in view:
             names(view["name"], f"{at}view.{vid}.name")
         for key in view:
-            if key in THEME_TOP and key not in ("name",):
+            # [details] is also a top-level table; [view.<id>.details] the
+            # view's free details screen.
+            if key in THEME_TOP and key not in ("name", "details"):
                 errors.append(f"{at}view.{vid}.{key}: a top-level key written after a [table] header; move it above the first header")
-            elif key not in ("name", "systems", "games", "home", "base"):
+            elif key not in ("name", "systems", "games", "home", "base", "details"):
                 warnings.append(f"{at}view.{vid}.{key}: unknown key")
         home = view.get("home")
         if isinstance(home, dict):
@@ -378,6 +384,9 @@ def check_layout(folder: Path, t: dict, at: str):
                         v = value.get(c)
                         if isinstance(v, (int, float)) and v > 1:
                             errors.append(f"{at}view.{vid}.{screen}.{key}.{c} = {v}: use a screen fraction, not pixels")
+        details = view.get("details")
+        if details is not None:
+            check_details(folder, view, details, f"{at}view.{vid}.details")
 
 
 def merge(base: dict, over: dict) -> dict:
@@ -522,7 +531,7 @@ def inherited_view(views: dict, vid: str, view: dict, at: str, depth: int = 0) -
     for key, value in view.items():
         if key == "base":
             continue
-        if key in ("systems", "games") and isinstance(value, dict):
+        if key in ("systems", "games", "details") and isinstance(value, dict):
             screen = dict(out.get(key) or {}) if isinstance(out.get(key), dict) else {}
             elements = [dict(e) for e in screen.pop("el", []) if isinstance(e, dict)]
             remove = value.get("remove")
@@ -624,7 +633,7 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
     if not isinstance(items, list) or not all(isinstance(i, dict) for i in items):
         errors.append(f"{at}: must be [[{at}]] tables")
         return
-    lists = videos = 0
+    lists = videos = scrolls = 0
     for n, item in enumerate(items):
         here = f"{at}[{n}]"
         kind = item.get("kind")
@@ -640,6 +649,12 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
             item = {k: v for k, v in found[0].items() if k != "id"} | item
         if kind not in EL_KINDS:
             errors.append(f"{here}.kind: one of {', '.join(sorted(EL_KINDS))}; element ignored")
+            continue
+        if screen == "details" and kind in EL_COLLECTIONS:
+            warnings.append(f"{here}: the details screen has no list, carousel or grid; ignored")
+            continue
+        if screen != "details" and kind == "actions":
+            warnings.append(f"{here}: actions belong to the details screen; ignored")
             continue
         for key in item:
             if key not in EL_COMMON and key not in EL_KINDS[kind]:
@@ -702,6 +717,18 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
             if not isinstance(item.get("text"), str):
                 errors.append(f"{here}.text: required text; element ignored")
             check_font(folder, item.get("font"), f"{here}.font")
+            lt = item.get("long_text", "ellipsis")
+            if lt not in ("ellipsis", "scroll"):
+                warnings.append(f"{here}.long_text: ellipsis or scroll; it ends in \"…\"")
+            elif lt == "scroll":
+                if item.get("wrap") is not True:
+                    warnings.append(f"{here}.long_text: only wrapped text (wrap = true) scrolls; it ends in \"…\"")
+                elif screen != "details":
+                    warnings.append(f"{here}.long_text: only the details screen scrolls text (↑/↓); it ends in \"…\"")
+                elif scrolls:
+                    warnings.append(f"{here}.long_text: one text scrolls per screen; this one ends in \"…\"")
+                else:
+                    scrolls += 1
         if kind == "image":
             src = item.get("src")
             src = [src] if isinstance(src, str) else (src if isinstance(src, list) else [])
@@ -793,8 +820,61 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
             errors.append(f"{here}.style: filled, outline or text")
         for text, where in texts:
             check_text_data(text, where)
-    if items and lists == 0:
+    if items and lists == 0 and screen != "details":
         warnings.append(f"{at}: no list, carousel or grid; the d-pad moves through a list nobody sees")
+
+
+def check_details(folder: Path, view: dict, details, at: str):
+    """[view.<id>.details] (20261125.21): its own el, or with base = "games"
+    the view's games screen less remove, its own elements laid over by id."""
+    if not isinstance(details, dict):
+        errors.append(f"{at}: must be a [{at}] table with [[{at}.el]] elements")
+        return
+    for key in details:
+        if key not in ("base", "remove", "el"):
+            warnings.append(f"{at}.{key}: unknown key (base, remove, el)")
+    elements = []
+    base = details.get("base")
+    if base == "games":
+        games = (view.get("games") or {}).get("el")
+        if isinstance(games, list) and games:
+            for e in games:
+                if not isinstance(e, dict):
+                    continue
+                e = dict(e)
+                # An inherited base = "<id>" still means the games screen's.
+                if isinstance(e.get("base"), str) and "." not in e["base"]:
+                    e["base"] = f"games.{e['base']}"
+                elements.append(e)
+        else:
+            warnings.append(f"{at}.base: the view's games screen has no elements; only the details' own")
+    elif base is not None:
+        warnings.append(f"{at}.base must be \"games\"; ignored")
+    remove = details.get("remove")
+    if remove is not None:
+        listed = [r for r in remove if isinstance(r, str)] if isinstance(remove, list) else []
+        if not listed:
+            warnings.append(f"{at}.remove: must list element ids; ignored")
+        for rid in listed:
+            before = len(elements)
+            elements = [e for e in elements if e.get("id") != rid]
+            if len(elements) == before:
+                warnings.append(f"{at}.remove: no inherited element {rid!r}")
+    own = details.get("el")
+    if own is not None and not isinstance(own, list):
+        errors.append(f"{at}.el: must be [[{at}.el]] tables")
+        return
+    for e in own or []:
+        same = next((x for x in elements if isinstance(e, dict) and e.get("id")
+                     and x.get("id") == e.get("id")), None)
+        if same is not None:
+            same.update(e)
+        else:
+            elements.append(e)
+    if not elements:
+        warnings.append(f"{at}: no element to draw; the classic details screen stays")
+        return
+    check_scene(folder, view, "details", elements, f"{at}.el")
 
 
 def check_anim(a, at: str, duration: float):

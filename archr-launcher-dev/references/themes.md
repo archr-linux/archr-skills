@@ -456,7 +456,7 @@ on a fresh install. To open on the shelves by default, put them in your own
 `[view.lista]` and offer the classic list under another id (Ellegance:
 `[view.classica]`).
 
-### Free screens (`el`, since update 20261125.15; phase 2 in 20261125.16, phase 3 in 20261125.17, phase 4 in 20261125.18, phase 5 in 20261125.19)
+### Free screens (`el`, since update 20261125.15; phase 2 in 20261125.16, phase 3 in 20261125.17, phase 4 in 20261125.18, phase 5 in 20261125.19, phase 6 in 20261125.20, phase 7 in 20261125.21)
 
 The systems and games screens of a view can be a **list of elements**
 instead of the fixed places above (`list`, `panel`, `art`, `info`...): full
@@ -470,8 +470,9 @@ Use it only when the fixed places cannot give the look. Colors, fonts and
 moving list/art are simpler in the view table.
 
 A screen is free when its table has `[[view.<id>.systems.el]]` or
-`[[view.<id>.games.el]]` entries. Nothing else changes: Details, Start, menus
-and Settings keep their tables. On a launcher older than 20261125.15 `el` is
+`[[view.<id>.games.el]]` entries. Nothing else changes: Start, menus
+and Settings keep their tables. Since 20261125.21 the details screen can be
+free too (`[[view.<id>.details.el]]`, see "Details screen" below). On a launcher older than 20261125.15 `el` is
 an unknown key: the view draws from its fixed places (the inherited ones if
 the theme gives none).
 
@@ -545,7 +546,7 @@ fractions of the **screen height** (0.035 = 17 px at 480 tall, 25 px at
 | `kind` | own fields |
 |---|---|
 | `image` | `src`, `fit` (`contain` default, `cover`, `stretch`), `align` (`left`/`center`/`right`, for a narrower `contain`), `tint` (color multiplied in), `radius`, `fallback` (one more theme path), `fallback_text` (text or a table of text fields, drawn when no source exists) |
-| `text` | `text`, `font` (`regular`/`semibold`/`bold`/`mono` or a `.ttf` in the theme), `size` (0.01..0.3, default 0.035), `color` (default theme `text`), `align`, `valign` (`top`/`middle`/`bottom`), `upper`, `shadow` `{ color, x, y }`, `wrap` (ends in "…"), `fit_text` (`ellipsis` default, `shrink` down to 60 % of size), `line` (0.8..3, default 1.25) |
+| `text` | `text`, `font` (`regular`/`semibold`/`bold`/`mono` or a `.ttf` in the theme), `size` (0.01..0.3, default 0.035), `color` (default theme `text`), `align`, `valign` (`top`/`middle`/`bottom`), `upper`, `shadow` `{ color, x, y }`, `wrap` (ends in "…"), `fit_text` (`ellipsis` default, `shrink` down to 60 % of size), `line` (0.8..3, default 1.25), `long_text` (`ellipsis` default, `scroll`: only on the details screen, 20261125.21) |
 | `rect` | `fill`, `border` (colors), `radius`, `gradient` `{ from, to, angle }` |
 | `frame` | `image`, `slice` (number or `[l, t, r, b]`), `scale` (0.25..8), `tile` (9-slice over the rectangle) |
 | `panel` | `radius`, `style` (`plain`, `glass`), `gradient` |
@@ -553,6 +554,7 @@ fractions of the **screen height** (0.035 = 17 px at 480 tall, 25 px at
 | `carousel` (20261125.17) | the screen's items in a row, column or wheel; see Collections below |
 | `grid` (20261125.17) | the screen's items in `columns` x `rows` cells; see Collections below |
 | `video` (20261125.18) | the focused game's or system's clip, muted: `src`, `fallback`, `fit`, `radius`, `delay`, `loop`, `mute`; see Video below |
+| `actions` (20261125.21) | the details' Play, Favorite and Scrape again buttons, the focused one lit, in the theme's button look; no own fields; only on the details screen |
 | `hints` | `align` (default `right`), `style` (`filled`, `outline`, `text`), `color`, `badge`, `letter_color` |
 | `status` | `color` (with it: icons and text straight on the screen, no pill) |
 | `rating` (20261125.16) | `game.rating` as five stars rounded to halves: `star`, `star_half`, `star_empty` (theme pictures; default the launcher's star, half = full cut over an empty, empty = full in `empty`), `color` (multiplies the full star; default theme `text` on the launcher star, none on a theme picture), `empty` (color), `empty_opacity` (0..1; 0.35, or 1 with `empty`/`star_empty`), `size` (one star's side, 0.005..0.3 of the height; default the rect height), `spacing` (0..0.2; default a fifth of a star), `align` (default `left`), `value` (may only be `"game.rating"`). No rating: nothing drawn |
@@ -867,13 +869,114 @@ and missing files warn and are skipped. Paths (and pictures/fonts named in
 an included file) are relative to the theme folder. Files must be `.toml`
 (the store keeps them).
 
+**Details screen** (20261125.21): `[[view.<id>.details.el]]` makes the
+game's details (Y › Details) a free screen, same elements and data;
+`game.*` is the open game, `${list.index}` its position among the system's
+games. Without `details` the view keeps the classic details (`details_*`
+keys, `[details]`, section 9). Source: `docs/temas.md` "Tela de detalhes";
+test theme views Solo (own elements), Albedo (inherited from its games
+screen) and Solo escuro (with `actions`).
+
+```toml
+[[view.solo.details.el]]
+id = "cover"
+kind = "image"
+src = ["game.cover", "game.screenshot"]
+rect = { x = 0.04, y = 0.17, w = 0.42, h = 0.37 }
+fit = "contain"
+
+[[view.solo.details.el]]
+id = "logo"
+kind = "image"
+src = "game.logo"
+fallback_text = { text = "${game.name}", size = 0.05, align = "center", fit_text = "shrink" }
+rect = { x = 0.52, y = 0.15, w = 0.44, h = 0.19 }
+fit = "contain"
+
+[[view.solo.details.el]]
+id = "description"
+kind = "text"
+text = "${game.description}"
+rect = { x = 0.52, y = 0.69, w = 0.44, h = 0.14 }
+size = 0.029
+wrap = true
+long_text = "scroll"                       # up/down scroll what does not fit
+
+[[view.solo.details.el]]
+id = "buttons"
+kind = "actions"                           # Play, Favorite, Scrape again
+rect = { x = 0.52, y = 0.845, w = 0.44, h = 0.07 }
+
+[[view.solo.details.el]]
+id = "hints"
+kind = "hints"
+rect = { x = 0.4, y = 0.94, w = 0.575, h = 0.05 }
+```
+
+The games screen with something else in place of the list:
+
+```toml
+[[view.albedo.games.el]]
+id = "list"
+kind = "list"
+rect = { x = 0, y = 0.15, w = 0.433, h = 0.775 }
+
+[[view.albedo.games.el]]
+id = "description"
+kind = "text"
+text = "${game.description}"
+rect = { x = 0.4667, y = 0.765, w = 0.5, h = 0.16 }
+wrap = true
+
+[view.albedo.details]
+base = "games"                             # the view's games screen...
+remove = ["list"]                          # ...less the list
+
+[[view.albedo.details.el]]
+id = "description"                         # same id: only this field changes
+long_text = "scroll"
+
+[[view.albedo.details.el]]
+id = "cover"                               # new id: one more element
+kind = "image"
+src = "game.cover"
+rect = { x = 0.03, y = 0.175, w = 0.373, h = 0.43 }
+```
+
+- `[view.<id>.details]` keys: `base`, `remove`, `el`. `base = "games"` is
+  the only value (anything else warns and is ignored); `remove` and same-id
+  elements work as in "Inherit a view". An inherited element's
+  `base = "<id>"` still means the games screen's. A games screen without
+  elements warns; only the details' own are drawn. A view with `base` at
+  the top inherits the other view's details too.
+- No `list`, `carousel` or `grid` on the details screen (warning, dropped).
+  Buttons never change: A runs the focused action (Play, Favorite, Scrape
+  again), L1/R1 move the focus, up/down scroll, Y game menu, B back.
+  `hints` shows them, the scroll arrow only when there is text to scroll.
+  Put `hints` in yourself; the screen draws nothing by itself.
+- `actions`: the three buttons in its rect, the focused one lit. Without
+  it the focused action shows only in the A hint. `actions` on the systems
+  or games screen warns and is dropped.
+- `long_text = "scroll"`: a `wrap = true` text past its rect scrolls one
+  line per up/down press; while more is below, its last line is faded.
+  One per screen. A second one, one without `wrap`, or one on the systems
+  or games screen warns and ends in "…" (`ellipsis`). No text scrolls by
+  itself.
+- The details' `video` plays in place of the classic preview (same player,
+  same Preview video option); `enter` animations play when the details
+  open; `[options]` and `[vars]` apply as elsewhere.
+- Check a game with and without a logo (`fallback_text`), a description
+  long enough to scroll (scrolled to the end: last line not faded) and the
+  `actions` focus moved with L1/R1, at the three sizes.
+
 **Appearance options**: Box art, its width and corners and System background
 do nothing on a free screen. Accent, text colors, background and text-only
 hints apply to list, hints and status when the element sets no color.
 
 **Not there yet** (keys warn and are dropped): video with sound, a random
 game's clip of the system on the systems screen, `include` inside an
-option choice, Details as a scene. Say "not available yet" instead
+option choice, text that scrolls by itself (`long_text` scrolls only with
+up/down, on the details screen). Say "not available yet" instead
 of inventing keys.
 
 **Test**: every block above is checked the launcher's way: parse it with
