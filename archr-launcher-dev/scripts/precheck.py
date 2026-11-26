@@ -283,6 +283,25 @@ def check_layout(folder: Path, t: dict, at: str):
                             errors.append(f"{at}view.{vid}.{screen}.{key}.{c} = {v}: use a screen fraction, not pixels")
 
 
+LAUNCHER_PACKAGE = "0.1.0"  # CARGO_PKG_VERSION of the launcher today; not the system version (v3.1.0)
+
+
+def check_min_launcher(value):
+    """min_launcher above the launcher package refuses the install."""
+    if value is None:
+        return
+    def parts(v):
+        return [int(p) if p.strip().isdigit() else 0 for p in str(v).split(".")]
+    wanted, ours = parts(value), parts(LAUNCHER_PACKAGE)
+    n = max(len(wanted), len(ours))
+    wanted += [0] * (n - len(wanted))
+    ours += [0] * (n - len(ours))
+    if wanted > ours:
+        errors.append(f"min_launcher = {value!r}: above the launcher package version "
+                      f"({LAUNCHER_PACKAGE}), so the store refuses the install; this is not "
+                      "the system version (v3.1.0). Use \"0.1.0\" or leave it out")
+
+
 def check_theme(folder: Path):
     src = folder / "theme.toml"
     if src.stat().st_size > 64 << 10:
@@ -295,6 +314,7 @@ def check_theme(folder: Path):
     for key in t:
         if key not in THEME_TOP:
             warnings.append(f"unknown top-level key {key} (ignored by the launcher)")
+    check_min_launcher(t.get("min_launcher"))
     if "name" not in t:
         errors.append("name: missing (the store refuses the theme)")
     else:
@@ -432,6 +452,7 @@ def check_module(folder: Path, offline: bool):
         errors.append(f"the folder must be named {mid} (now {folder.name})")
     if not SEMVER.match(str(m.get("version", ""))):
         errors.append("version: required, x.y.z")
+    check_min_launcher(m.get("min_launcher"))
     api = m.get("api_version")
     if api not in (1, 2, 3, 4):
         errors.append("api_version: 1, 2, 3 or 4")

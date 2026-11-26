@@ -29,11 +29,11 @@ Content
       `background`/frames.
 - [ ] Screen tables use only the words the launcher knows (`precheck.py`
       reports misspelled keys and styles); `[settings.icon_colors]` names
-      only the nine pages.
+      only the ten pages.
 
 PC test
 - [ ] Capture test run for every view the theme defines, plus `:noart`, in
-      `en,pt_BR,es,ru`, at `ARCHR_CAPTURE_SIZE` 640x480, 720x720 and 480x320
+      `en,pt_BR,es,ru`, at `ARCHR_CAPTURE_SIZE` 640x480, 720x720 and 480x320 (1280x720 too when the theme targets 16:9)
       (one output folder per size); every PNG looked at (systems, games,
       games-nocover, details, dialog, Start menu, Appearance).
 - [ ] User Appearance options checked over the theme: box art off (the list
@@ -82,7 +82,9 @@ Store
       optional `screenshots/1..3.png` 640×480 ≤ 2 MB.
 - [ ] Public repo, topic `archr-launcher-theme`, root = theme folder.
 - [ ] Optional metadata: `description` (≤ 200), `author`, `version`, `license`,
-      `min_launcher`.
+      `min_launcher` (`0.1.0` or left out: it is the launcher package
+      version, not the system version v3.1.0, and anything higher refuses
+      the install).
 - [ ] Default branch pushed, then a release `v<version>` created (theme
       releases need no assets).
 - [ ] Installed once from the store on the device and checked again.
@@ -124,6 +126,11 @@ Store
       --prefix=<id>/`, written outside the folder), `module.toml` (same bytes
       as in the tag), `preview.png`; ≤ 8 MB packed, ≤ 16 MB unpacked,
       ≤ 500 entries.
+- [ ] `gh release view v<version> --json assets -q '.assets[].name'` lists
+      all three; a missing one goes up with `gh release upload` (no
+      `module.toml` = "The release does not carry the module package.").
+- [ ] Store opened on the device after **Refresh (Y)**: the card shows the new
+      name and version, and the permissions screen opens.
 - [ ] Installed once from the store on the device.
 - [ ] Told the user: the "Reviewed by ArchR" badge is up to the maintainer
       (issue at archr-linux/archr-modules with the release link), and any new

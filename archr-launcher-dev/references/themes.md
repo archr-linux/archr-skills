@@ -224,7 +224,7 @@ with `[settings]` (section 9). Bad values warn in the log and keep the default.
 | `shadow_color` | color | black | colour of the `"soft"` shadow; its alpha scales the shadow |
 | `shadow_blur` | 0..0.1 | ~0.033 (16 px) | spread of the soft shadow (size, fraction of 480) |
 | `shadow_offset` | -0.05..0.05 | 8 px | how far the soft shadow drops |
-| `glass` | `{ fill, border, highlight, blur }` | white 12 %, border 20 %, highlight 25 %, no blur | the glass material a panel picks with `style = "glass"`, clear and lit: blurred background added over itself (brighter, more vivid), faint `fill`, a gentle light from the top, `border` as a 1 px rim strongest at the top left fading around the shape, `highlight` as a glow band just inside it; `blur` (fraction of 480) blurs the background image behind it, once per image |
+| `glass` | `{ fill, border, highlight, blur }` | white 12 %, border 20 %, highlight 25 %, no blur | the glass material a panel picks with `style = "glass"`: the translucent `fill`, a 1 px `border`, a 1 px `highlight` along the top and, behind it, the background blurred by `blur` (fraction of 480; `0` for none), once per image |
 | `focus` | `"pill"` `"lift"` | `"pill"` | `lift`: the focused tile/card grows, gains the shadow and a ring (tiles, shelves, library, games grid, Start blocks); a new focus rises on the theme's motion, the first of a screen is up at once |
 | `focus_scale` | 1..1.15 | `1.06` | growth with `lift` |
 | `focus_ring` | `{ color, width }` | accent, 2 px | the lift ring; `width` 0..8 reference px |
@@ -235,10 +235,10 @@ with `[settings]` (section 9). Bad values warn in the log and keep the default.
 
 ```toml
 font_bold = "fonts/Inter-Bold.ttf"
-shadow_color = "#00000073"
-shadow_blur = 0.0667
-shadow_offset = 0.0167
-glass = { fill = "#FFFFFF2E", border = "#FFFFFF8C", highlight = "#FFFFFF2E", blur = 0.05 }
+shadow_color = "#000000F0"
+shadow_blur = 0.075
+shadow_offset = 0.0375
+glass = { fill = "#FFFFFF14", border = "#FFFFFF1F", highlight = "#FFFFFF29", blur = 0.05 }
 focus = "lift"
 focus_scale = 1.05
 focus_ring = { color = "#F5F5F7EB", width = 2 }
@@ -583,7 +583,9 @@ whole; the spare room goes to the longer side.
 | 720×720 | R36 Plus | 1.125 | 640×640 | `square` |
 | 480×320 | Odroid Go Advance, RGB10, RG351M (portrait panel turned by Sway) | 0.667 | 720×480 | `wide` |
 | 854×480 | 16:9 | 1 | 854×480 | `wide` |
-| 1280×720 | 16:9 | 1.5 | 853×480 | `wide` |
+| 1024×768 | 4:3 | 1.6 | 640×480 | `classic` |
+| 1024×600 | RK3562 handhelds | 1.25 | 819×480 | `wide` |
+| 1280×720 | 16:9, RG43V PRO / RG52 MINI (RK3562) | 1.5 | 853×480 | `wide` |
 
 Shape from width/height: `square` below 1.2 (6:5), `classic` 1.2 to 1.45
 (29:20) inclusive, `wide` above 1.45. Code: `Aspect::of` in
@@ -592,7 +594,10 @@ Shape from width/height: `square` below 1.2 (6:5), `classic` 1.2 to 1.45
 Consequences with no `[aspect]` table at all: sizes keep their reference px,
 so a square screen shows more list rows of the same height (Grafite: 10
 game rows at 640×480, at least 13 at 720×720); rectangles stretch, so a
-portrait cover gets taller and narrower; the built-in `lista` geometry
+portrait cover gets taller and narrower, except the game pictures of the
+Switcher (`switcher_card`, `switcher_side`) and of the resume screen
+(`resume_shot`), which always stay 4:3, centered in their rectangle
+(`picture_pixels` in `render.rs`), so they never stretch on 16:9; the built-in `lista` geometry
 (250 px system panel, margins) is computed in reference px for the real
 screen and does not stretch.
 
@@ -724,7 +729,7 @@ done
 
 Layout fit at every size: the `resolutions` integration test loads every
 folder with a `theme.toml` in the clone's `themes/` and checks each view at
-640×480, 720×720 and 480×320 (list under the header, everything on screen,
+640×480, 720×720, 480×320, 1024×768, 1024×600 and 1280×720 (list under the header, everything on screen,
 panel/art/info/meta/dots clear of the list, details, saves, switcher and
 resume rectangles not overlapping). Copy the theme in, run it, take it out:
 
@@ -815,6 +820,12 @@ version = "1.2.0"         # <= 24 chars; default: release tag
 license = "CC BY 4.0"     # <= 40 chars; LICENSE file is installed too
 min_launcher = "0.1.0"    # older launchers refuse to install
 ```
+
+`min_launcher` is compared with the launcher **package** version
+(`CARGO_PKG_VERSION`, today `0.1.0`), not with the system version Settings
+shows (`v3.1.0 · …`) nor with the theme API number (3.1). Anything above
+`0.1.0` makes today's store refuse the theme ("This theme needs a newer
+launcher version."). Write `0.1.0` or leave the key out.
 
 Which version installs: the latest GitHub release (by tag) if there is one,
 otherwise the default branch as it is. A new release turns the installed

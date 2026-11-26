@@ -8,14 +8,18 @@ description: Build, test and publish themes and modules for archr-launcher, the 
 archr-launcher draws every screen of an ArchR handheld from a 640×480
 reference design, scaled to fit the real screen: 640×480 (R36S and most
 RK3326 handhelds), 720×720 (R36 Plus) and 480×320 (Odroid Go Advance, RGB10,
-RG351M); a 16:9 screen takes the 3:2 layout. A theme can change its layout per screen
+RG351M); a 16:9 screen (1280×720 on the RK3562 handhelds) takes the 3:2 layout. A theme can change its layout per screen
 shape with `[aspect.square]`, `[aspect.classic]` and `[aspect.wide]` tables.
 Third parties extend it in two ways, and neither runs code inside
 the launcher:
 
 - A **theme** is a folder of data: `theme.toml` plus optional fonts, images,
-  icons and sounds. It recolors everything and repositions the systems,
-  games, details and a few other screens. Nothing in a theme is executed.
+  icons and sounds. It recolors everything and, with theme API 3.1, changes
+  the layout of every screen: systems, games, details, the Start menu and
+  shelves, one table per screen (menu, achievements, saves, screenshots,
+  switcher, resume, search, keyboard, toast, dialogs, OSD) and Settings
+  (`[settings]`: sidebar or list, tiles, inset groups, title, icon colours).
+  Nothing in a theme is executed.
 - A **module** is an external program (sh, bash + `jq`, or an aarch64 binary)
   that the launcher starts in a systemd sandbox and talks to with JSON-RPC 2.0,
   one JSON object per line on stdin/stdout. The module *declares* in
@@ -100,7 +104,17 @@ reads, the gamepad or the R36S speed.
 - The "Reviewed by ArchR" badge (Revisado) in the Module store is given only by
   the ArchR maintainer, by adding the exact package digest to a signed list.
   Nobody can earn it by following rules, and publishing a new package removes
-  it until the maintainer reviews again. Themes have no badge.
+  it until the maintainer reviews again. Ask for it with an issue at
+  `archr-linux/archr-modules` carrying the release link. Themes have no badge.
+- A module release needs three assets: `<id>-<version>.tar.gz`, the loose
+  `module.toml` and `preview.png`. Without the loose `module.toml` the store
+  says "The release does not carry the module package." Check with
+  `gh release view v<version> --json assets -q '.assets[].name'`, fix with
+  `gh release upload`, then press **Refresh (Y)** in the store, which reads
+  every listed release again.
+- `min_launcher` is the launcher package version (`0.1.0` today), not the
+  system version (v3.1.0) nor the theme API (3.1). A higher value makes the
+  store refuse the theme or module; `precheck.py` flags it.
 - A passing `--check-module` or a nice capture does not prove the thing works
   on the handheld. Say so when you hand over the result, and list what still
   needs a device test.
@@ -124,7 +138,7 @@ reads, the gamepad or the R36S speed.
   px/480; a square 720×720 screen is 640×640 reference px, 480×320 is
   720×480.
 - A layout that looks right at 640×480 can break on a square or 3:2 screen.
-  Check every theme at the three sizes, and fix a shape with its
+  Check every theme at the three sizes (1280×720 too for 16:9), and fix a shape with its
   `[aspect.<shape>]` table rather than the top-level values, which apply
   to every screen.
 - No text is ever drawn under 10 screen px, whatever `font_min` or

@@ -482,6 +482,38 @@ Write the tarball outside the module folder, or it ends up inside the next
 package. Commit `preview.png` and `module.toml` before tagging so the loose
 assets match the tag.
 
+**Always check the release's assets.** `gh release create` uploads only the
+files named on its command line; a release without the loose `module.toml`
+is the most common mistake (Desempenho e chip 0.4.0 went out that way). All
+three must be listed:
+
+```sh
+gh release view v1.0.0 --json assets -q '.assets[].name'
+# <id>-1.0.0.tar.gz
+# module.toml
+# preview.png
+```
+
+A missing one goes up to the same release, no new tag:
+`gh release upload v1.0.0 module.toml preview.png`. What the store shows when
+the release is wrong (keys from `locales/en.toml`):
+
+| problem | store message |
+|---|---|
+| no loose `module.toml`, or no asset named exactly `<id>-<version>.tar.gz` | "The release does not carry the module package." (`modules.no_package`); without `module.toml` the card has no name or version either |
+| tag is not `v<version>` | "The release tag does not match the module version." (`modules.bad_tag`) |
+| loose `module.toml` differs from the packaged one | "The package holds another module.toml than the one shown." (`modules.manifest_mismatch`) |
+| GitHub publishes no digest for the asset | "GitHub does not publish the package checksum; it was not installed." (`modules.no_digest`) |
+| package over 8 MB | "The module is larger than the store accepts." (`modules.too_big`) |
+| `api_version` above 4 or `min_launcher` above the launcher package (`0.1.0` today; not the system version v3.1.0) | "This module needs a newer launcher." (`modules.incompatible`) |
+| no `preview.png` | no error; the permissions screen has no picture |
+
+The store keeps each repository's release and `module.toml` for an hour.
+**Refresh (Y)** in the store searches again and, when GitHub answers, drops
+the saved release and `module.toml` of every listed module (launcher
+c3f06c2), so a fixed release or a new version shows at once. Offline the
+saved answers stay. Tell the user to press Y after fixing a release.
+
 The store checks the SHA-256 GitHub publishes for the asset, requires the loose
 `module.toml` to match the packaged one, and runs the same validation as
 `--check-module`. An `id` belongs to the first repository that used it on that
@@ -492,9 +524,16 @@ is kept until the new one runs.
 reviewing the package and adding its repository and digest to a list signed
 with the project key (release of `archr-linux/archr-modules`). Reviewed modules
 come first and may auto-update when the user enables it and the update asks
-for nothing new. Any new package loses the badge until it is reviewed again.
-To ask for a review, open an issue at github.com/archr-linux/archr-modules
-with the link to your module's release.
+for nothing new. Any new package loses the badge until it is reviewed again:
+the list holds the digest of one exact `.tar.gz`, and the badge (and the
+**Reviewed** tab) only counts a repository whose *current* release carries a
+listed package. To ask for a review, open an issue at
+github.com/archr-linux/archr-modules with the link to your module's release;
+ask again for every new version. The list (`reviewed.json` + Ed25519
+`reviewed.json.sig`, with `serial` and `expires`) is published as the latest
+release of that repository (`reviewed-<serial>`); only the maintainer signs
+it, with a key that never leaves their machine (`tools/sign-reviewed` in the
+launcher, `docs/modulos.md` section 8).
 
 ## 13. Pitfalls
 
@@ -515,12 +554,17 @@ with the link to your module's release.
 - Assuming network, `curl`, Python or `/storage/roms` access without the
   permission.
 - Tag `v1.0.0` with `version = "1.0.1"` in the manifest → `modules.bad_tag`.
+- Release without the loose `module.toml` (or a tarball named other than
+  `<id>-<version>.tar.gz`) → "The release does not carry the module package."
+- `min_launcher = "3.1.0"` (the system version) → "needs a newer launcher":
+  the launcher package is `0.1.0`.
 - Repacking with `tar` from inside the folder → no `<id>/` prefix → refused.
 
 ## 14. CPU tuning and detail pages (API 3)
 
 Source: `docs/modulos.md` section 9 and `examples/modules/ajuste-cpu` in the
-launcher (not yet in the Module store).
+launcher (published in the Module store as
+`archr-linux/archr-module-ajuste-cpu`).
 
 API 3 adds only what automatic CPU tuning needs. In a manifest with
 `api_version` below 3, the page keys and row types below are ignored with a
