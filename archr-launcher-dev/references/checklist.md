@@ -52,6 +52,12 @@ PC test
       games grid, game menu, details, Start, achievements, saves, captures,
       delete-save question, switcher, resume, search, keyboard, toast,
       Settings root, a page, Wi-Fi, a picker, and the volume OSD.
+- [ ] Free screens (`el`): every screen has one `list`, plus `hints` and
+      `status` if it should show them; no "Theme view.<id>...el[...]"
+      warnings (`shipped_themes` with the theme in `themes/`); captured at
+      the three sizes after the pictures loaded, with a system that has its
+      own art and one that falls back, a game with and without logo,
+      cover and description; `when.aspect` elements checked on their shape.
 - [ ] Shelves and a games grid on 720x720: nothing under the hints, no cut
       row; `[aspect.square]` adjusts hero, items and `list.h`.
 - [ ] On 720x720 also: no empty gap between search results and keyboard

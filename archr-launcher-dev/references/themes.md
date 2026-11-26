@@ -1,7 +1,7 @@
 # Themes reference
 
 Source of truth: `docs/temas.md`, `crates/archr-ui/src/theme.rs`,
-`crates/archr-ui/src/layout.rs`, `crates/archr-ui/src/settings/store.rs`
+`crates/archr-ui/src/layout.rs`, `crates/archr-ui/src/layout/scene.rs`, `crates/archr-ui/src/settings/store.rs`
 and `crates/archr-ui/tests/resolutions.rs`
 in github.com/archr-linux/archr-launcher. Published examples:
 github.com/archr-linux/archr-theme-praia and archr-theme-retro. The 3.1
@@ -18,7 +18,7 @@ glass, a sidebar Settings or the capsule OSD.
 5. Global geometry
 6. Style
 7. Theme images: background, 9-slice frames, text outline, decorations
-8. Views (systems and games screens)
+8. Views (systems and games screens, shelves, free screens `el`)
 9. Fixed-screen rectangles (details, achievements, saves, switcher...)
 10. Screen sizes and `[aspect.*]` tables
 11. Icons, console art, sounds
@@ -454,6 +454,159 @@ A theme cannot pick the view a user starts on: it is `launcher.view`, `lista`
 on a fresh install. To open on the shelves by default, put them in your own
 `[view.lista]` and offer the classic list under another id (Ellegance:
 `[view.classica]`).
+
+### Free screens (`el`, since update 20261125.15)
+
+The systems and games screens of a view can be a **list of elements**
+instead of the fixed places above (`list`, `panel`, `art`, `info`...): full
+art per system, cut-out frames over the content, rotated text, several texts
+and pictures with system and game data (the EmulationStation way). Source:
+`docs/temas.md` "Telas livres", `crates/archr-ui/src/layout/scene.rs`,
+`crates/archr-ui/src/render/scene.rs`; a working test theme with two views
+(Solo, Albedo) is `crates/archr-ui/tests/themes/cena/theme.toml`.
+
+Use it only when the fixed places cannot give the look. Colors, fonts and
+moving list/art are simpler in the view table.
+
+A screen is free when its table has `[[view.<id>.systems.el]]` or
+`[[view.<id>.games.el]]` entries. Nothing else changes: Details, Start, menus
+and Settings keep their tables. On a launcher older than 20261125.15 `el` is
+an unknown key: the view draws from its fixed places (the inherited ones if
+the theme gives none).
+
+```toml
+[view.solo]
+name = { en = "Solo", pt_BR = "Solo", es = "Solo", ru = "Соло" }
+
+[[view.solo.systems.el]]
+id = "art"
+kind = "image"
+src = ["arts/${system}.jpg", "arts/default.jpg"]
+fit = "cover"
+
+[[view.solo.systems.el]]
+id = "list"
+kind = "list"
+rect = { x = 0.6, y = 0.15, w = 0.36, h = 0.68 }
+row = 0.075
+size = 0.04
+mark = "bar"
+scroll = "center"
+z = 10
+
+[[view.solo.systems.el]]
+id = "count"
+kind = "text"
+text = "${system.games}"
+rect = { x = 0.5, y = 0.868, w = 0.448, h = 0.05 }
+align = "right"
+size = 0.032
+shadow = { color = "#000000A0", x = 0.002, y = 0.002 }
+z = 20
+
+[[view.solo.systems.el]]
+id = "hints"
+kind = "hints"
+rect = { x = 0.565, y = 0.94, w = 0.41, h = 0.05 }
+style = "outline"
+color = "#FFFFFF"
+z = 50
+```
+
+Rules that bite:
+
+- The screen draws **nothing by itself**: header, footer, clock (`status`)
+  and button hints (`hints`) appear only as elements.
+- Draw order: lowest `z` first; equal `z` keep file order.
+- `el` lists never merge: the theme's list replaces the inherited one whole;
+  `el = []` brings the fixed places back. An `el` inside
+  `[aspect.<shape>]` replaces the whole list on that shape, so prefer
+  `when = { aspect = "square" }` on single elements.
+- One `list` element per screen (a second is ignored). Without one the d-pad
+  still moves through an unseen list.
+- Unknown field, wrong type or out of range: log warning, field dropped or
+  clamped. Unknown `kind` or an image with no source: element dropped.
+
+**Common fields** (every kind): `id` (name, for `base`), `kind`, `rect`
+`{ x, y, w, h }` in **screen fractions** (default the whole screen; x/y
+-1..2, w/h up to 4, may go off screen), `anchor` (`top-left` default, `top`,
+`top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`,
+`bottom-right` or `[x, y]`: the rectangle's point placed at x, y), `z`
+(-1000..1000, default 0), `opacity` (0..1), `rotate` (degrees -360..360,
+clockwise), `pivot` (`[x, y]` of the rectangle, default `[0.5, 0.5]`),
+`when`, `base`.
+
+**Sizes inside an element** (`size`, `row`, `radius`, shadow offsets) are
+fractions of the **screen height** (0.035 = 17 px at 480 tall, 25 px at
+720), not of the 480 reference used elsewhere. The 10 px text floor holds.
+
+| `kind` | own fields |
+|---|---|
+| `image` | `src`, `fit` (`contain` default, `cover`, `stretch`), `align` (`left`/`center`/`right`, for a narrower `contain`), `tint` (color multiplied in), `radius`, `fallback` (one more theme path), `fallback_text` (text or a table of text fields, drawn when no source exists) |
+| `text` | `text`, `font` (`regular`/`semibold`/`bold`/`mono` or a `.ttf` in the theme), `size` (0.01..0.3, default 0.035), `color` (default theme `text`), `align`, `valign` (`top`/`middle`/`bottom`), `upper`, `shadow` `{ color, x, y }`, `wrap` (ends in "…"), `fit_text` (`ellipsis` default, `shrink` down to 60 % of size), `line` (0.8..3, default 1.25) |
+| `rect` | `fill`, `border` (colors), `radius`, `gradient` `{ from, to, angle }` |
+| `frame` | `image`, `slice` (number or `[l, t, r, b]`), `scale` (0.25..8), `tile` (9-slice over the rectangle) |
+| `panel` | `radius`, `style` (`plain`, `glass`), `gradient` |
+| `list` | `row`, `gap`, `radius`, `selected` (height or `{ height, fill, color }`), `size`, `selected_size`, `color`, `mark`, `scroll`, `cursor`, `axis`, `columns` (as the view's `list`; `tile` only on systems, `grid` only on games) |
+| `hints` | `align` (default `right`), `style` (`filled`, `outline`, `text`), `color`, `badge`, `letter_color` |
+| `status` | `color` (with it: icons and text straight on the screen, no pill) |
+
+**Image sources**: `src` is a path or a list, first existing wins; paths are
+relative to the theme (no `..`) and may hold data (`arts/${system}.jpg`,
+`frames/${aspect}/border.png`). `game.cover`, `game.screenshot`, `game.logo`
+are the focused game's pictures from `gamelist.xml`. PNG, JPG, WebP, SVG;
+loaded off the draw thread, shrunk to at most 1.5x the screen (cache
+`thumbs/scene`); the element is absent until loaded.
+
+**Data** (`${...}` in `text` and paths): `system` (id; a collection without
+`@`), `system.name`, `system.maker`, `system.year`, `system.count` ("213"),
+`system.games` ("213 games", localized), `system.favorites`, `game.name`,
+`game.description`, `game.genre`, `game.developer`, `game.publisher`,
+`game.year`, `game.players`, `game.rating` (0..5, one decimal),
+`game.last_played` ("2 days ago"), `list.index` (from 1), `list.total`,
+`item` (system id or game file name), `aspect` (`classic`/`square`/`wide`).
+`game.*` is empty on the systems screen. An unknown name stays literal with
+a warning. Empty text draws nothing.
+
+**Phrases**: `text = "@key"` (the whole value) is a launcher phrase in the
+user's language: `@description`, `@last_played` (free screens), `@genre`,
+`@players`, `@released`, `@developer`, `@publisher`, `@rating` (Details) or
+any catalog key (`@hint.play`). Use them instead of hard-coded labels so the
+four languages work.
+
+**Variables**: a top-level `[vars]` table (and `[aspect.<shape>.vars]` to
+change them per shape). A value that is exactly `"$name"` becomes the
+variable with its type (color, number, path); `${name}` inside a string is
+its text. Works in the whole file, top-level keys included
+(`accent = "$gold"`). Data names are never variables. Unknown variable:
+warning, value kept literally.
+
+**Conditions**: `when = { system = [...], aspect = ..., has = "game.year" }`,
+each a name or a list, all keys must hold. A failing element is not drawn
+and does not load its picture.
+
+**Reuse**: `base = "systems.hints"` (or `"hints"` on the same screen) copies
+an element of the same view; written fields override.
+
+**Appearance options**: Box art, its width and corners and System background
+do nothing on a free screen. Accent, text colors, background and text-only
+hints apply to list, hints and status when the element sets no color.
+
+**Not there yet** (keys warn and are dropped): system carousel or wheel, a
+grid with an item template (logo over it, favorite badge), video, rating
+stars from a theme picture, theme options in Appearance, `include`,
+per-element animations, Details as a scene. Say "not available yet" instead
+of inventing keys.
+
+**Test**: every block above is checked the launcher's way: parse it with
+`Theme::parse` and build each view at 640x480, 720x720 and 1024x768 with no
+log warning (`crates/archr-ui/tests/scene_render.rs`,
+`every_example_of_the_docs_chapter_reads_without_warnings`). For a theme,
+`cargo test -p archr-ui --test shipped_themes` with the folder copied into
+`themes/` fails on any warning, and the `scene_render` test shows how
+captures wait for pictures (`ui.pictures_idle()`) before saving a frame. On
+the device, check the launcher log for `Theme view.<id>.<screen>.el[...]`
+warnings.
 
 ## 9. Fixed-screen rectangles
 
@@ -903,3 +1056,12 @@ sync: push to the default branch, then release.
   the whole theme falls back to the default.
 - A screen table key you misspell is only a log warning; the precheck now
   reports them.
+- Free screen (`el`) draws nothing it is not told to: forgetting `hints` or
+  `status` leaves the screen without button hints or clock.
+- Free screen sizes (`size`, `row`, `radius`) are fractions of the **screen
+  height**, not of the 480 reference; rectangles are screen fractions as
+  usual. Pixels (`size = 18`) are clamped to the maximum.
+- An `el` inside `[aspect.square]` replaces the screen's whole list on square
+  screens; use `when = { aspect = "square" }` on the elements that differ.
+- A free screen with images only and no `list` element still navigates, but
+  the user cannot see where the cursor is. Give every free screen a `list`.

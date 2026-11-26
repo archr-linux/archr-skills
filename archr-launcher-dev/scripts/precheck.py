@@ -57,6 +57,8 @@ THEME_TOP = {
     "border_width", "shadow", "art_scaling", "image_scaling", "easing", "font_scale",
     "font_grid", "font_min", "font_smoothing", "text_outline", "background_image",
     "frames", "aspect", "description", "author", "version", "license", "min_launcher",
+    # Free screens (update 20261125.15): variables for every key.
+    "vars",
 # 3.1: bold face, style, and one table per screen.
 "font_bold", "shadow_color", "shadow_blur", "shadow_offset", "glass", "focus",
 "focus_scale", "focus_ring", "motion", "gradient", "title_tracking",
@@ -73,6 +75,33 @@ PER_THEME = {"font", "font_semibold", "font_bold", "font_mono", "font_mono_mediu
              "description", "author", "version", "license", "min_launcher"}
 SCREEN_KEYS = {"header", "title", "status", "divider", "summary", "list", "panel", "art",
                "backdrop", "info", "meta", "dots", "decor", "strip"}
+# Free screens (launcher crates/archr-ui/src/layout/scene.rs): the fields of
+# an [[view.<id>.systems.el]] / [[view.<id>.games.el]] element.
+EL_COMMON = {"id", "kind", "base", "rect", "anchor", "z", "opacity", "rotate", "pivot", "when"}
+EL_TEXT = {"text", "font", "size", "color", "align", "valign", "upper", "shadow", "wrap", "line",
+           "fit_text"}
+EL_KINDS = {
+    "image": {"src", "fit", "align", "tint", "radius", "fallback", "fallback_text"},
+    "text": EL_TEXT,
+    "rect": {"fill", "border", "radius", "gradient"},
+    "frame": {"image", "slice", "scale", "tile"},
+    "panel": {"radius", "style", "gradient"},
+    "list": {"row", "selected", "gap", "size", "selected_size", "radius", "axis", "mark", "scroll",
+             "cursor", "columns", "color"},
+    "hints": {"align", "style", "color", "badge", "letter_color"},
+    "status": {"color"},
+}
+EL_WORDS = {"fit": {"contain", "cover", "stretch"}, "valign": {"top", "middle", "bottom"},
+            "fit_text": {"ellipsis", "shrink"}}
+EL_ANCHORS = {"top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom",
+              "bottom-right"}
+EL_DATA = {"system", "system.name", "system.fullname", "system.maker", "system.year",
+           "system.count", "system.games", "system.favorites", "game.name", "game.description",
+           "game.genre", "game.developer", "game.publisher", "game.year", "game.players",
+           "game.rating", "game.last_played", "game.cover", "game.screenshot", "game.logo",
+           "list.index", "list.total", "item", "aspect"}
+EL_FACES = {"regular", "semibold", "bold", "mono"}
+DATA_REF = re.compile(r"\$\{([^}]*)\}")
 FRAMES = {"header", "footer", "list", "row", "selected", "panel", "art", "button",
           "button_selected", "badge", "tile", "tile_selected"}
 SOUND_EVENTS = {"boot", "move", "page", "select", "back", "launch", "menu_open",
@@ -268,6 +297,9 @@ def check_layout(folder: Path, t: dict, at: str):
             errors.append(f"{at}view.{vid}.home: true or [view.{vid}.home.*] tables")
         for screen in ("systems", "games"):
             for key, value in (view.get(screen) or {}).items():
+                if key == "el":
+                    check_scene(folder, view, screen, value, f"{at}view.{vid}.{screen}.el")
+                    continue
                 # header and status are a screen's keys as well as tables.
                 if key in THEME_TOP and key not in SCREEN_KEYS:
                     errors.append(f"{at}view.{vid}.{screen}.{key}: a top-level key written after a [table] header; move it above the first header")
@@ -281,6 +313,189 @@ def check_layout(folder: Path, t: dict, at: str):
                         v = value.get(c)
                         if isinstance(v, (int, float)) and v > 1:
                             errors.append(f"{at}view.{vid}.{screen}.{key}.{c} = {v}: use a screen fraction, not pixels")
+
+
+def substitute(node, vars: dict):
+    """[vars] written in, as the launcher does: a value that is exactly
+    "$name" becomes the variable (with its type), ${name} inside a string its
+    text. Data names (${system}, ${game.name}...) are left for the screen."""
+    if isinstance(node, dict):
+        return {k: substitute(v, vars) for k, v in node.items() if k != "vars"} | (
+            {"vars": node["vars"]} if "vars" in node else {})
+    if isinstance(node, list):
+        return [substitute(v, vars) for v in node]
+    if isinstance(node, str):
+        if node.startswith("$") and not node.startswith("${") and node[1:] in vars:
+            return vars[node[1:]]
+        def text(m):
+            name = m.group(1)
+            if name in vars and name not in EL_DATA:
+                v = vars[name]
+                return str(v).lower() if isinstance(v, bool) else str(v)
+            return m.group(0)
+        return DATA_REF.sub(text, node)
+    return node
+
+
+def own_vars(t: dict, at: str):
+    v = t.get("vars", {})
+    if not isinstance(v, dict):
+        errors.append(f"{at}vars: must be a [vars] table")
+        return {}
+    for name, value in v.items():
+        if not isinstance(value, (str, int, float, bool)):
+            warnings.append(f"{at}vars.{name}: must be text, a number or true/false; ignored")
+        if name.split(".")[0] in ("system", "game", "list", "item", "aspect"):
+            warnings.append(f"{at}vars.{name}: a data name; ${{{name}}} always means the data")
+    return {k: x for k, x in v.items() if isinstance(x, (str, int, float, bool))}
+
+
+def unresolved(node, at: str):
+    """A "$name" left after substitution names no variable."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k != "vars":
+                unresolved(v, f"{at}.{k}" if at else k)
+    elif isinstance(node, list):
+        for n, v in enumerate(node):
+            unresolved(v, f"{at}[{n}]")
+    elif isinstance(node, str) and re.fullmatch(r"\$[A-Za-z_][A-Za-z0-9_]*", node):
+        warnings.append(f"{at}: {node} is no variable in [vars]; the text stays as written")
+
+
+def number(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def check_text_data(text, at: str):
+    if not isinstance(text, str):
+        return
+    for name in DATA_REF.findall(text):
+        if name not in EL_DATA:
+            warnings.append(f"{at}: unknown data ${{{name}}} (written as it is)")
+
+
+def check_scene(folder: Path, view: dict, screen: str, items, at: str):
+    """A free screen: the [[...el]] elements of a view's systems or games."""
+    if not isinstance(items, list) or not all(isinstance(i, dict) for i in items):
+        errors.append(f"{at}: must be [[{at}]] tables")
+        return
+    lists = 0
+    for n, item in enumerate(items):
+        here = f"{at}[{n}]"
+        kind = item.get("kind")
+        base = item.get("base")
+        if base is not None and kind is None:
+            where, _, eid = base.rpartition(".") if isinstance(base, str) else ("", "", "")
+            pool = (view.get(where or screen) or {}).get("el") or []
+            found = [e for e in pool if isinstance(e, dict) and e.get("id") == eid]
+            if not found:
+                warnings.append(f"{here}.base: no element {base!r} in this view; element ignored")
+                continue
+            kind = found[0].get("kind")
+            item = {k: v for k, v in found[0].items() if k != "id"} | item
+        if kind not in EL_KINDS:
+            errors.append(f"{here}.kind: one of {', '.join(sorted(EL_KINDS))}; element ignored")
+            continue
+        for key in item:
+            if key not in EL_COMMON and key not in EL_KINDS[kind]:
+                warnings.append(f"{here}.{key}: unknown key for kind = \"{kind}\" (ignored)")
+        if kind == "list":
+            lists += 1
+        r = item.get("rect")
+        if r is not None:
+            if not isinstance(r, dict) or any(k not in "xywh" or not number(v) for k, v in r.items()):
+                errors.append(f"{here}.rect: {{ x, y, w, h }} numbers (screen fractions)")
+            elif any(abs(r.get(c, 0)) > 2 for c in "xy") or any(r.get(c, 1) > 4 for c in "wh"):
+                errors.append(f"{here}.rect: use screen fractions, not pixels")
+        a = item.get("anchor")
+        if a is not None and a not in EL_ANCHORS and not (
+                isinstance(a, list) and len(a) == 2 and all(number(v) for v in a)):
+            errors.append(f"{here}.anchor: one of {', '.join(sorted(EL_ANCHORS))} or [x, y]")
+        for key, lo, hi in (("z", -1000, 1000), ("opacity", 0, 1), ("rotate", -360, 360),
+                            ("size", 0.01, 0.3), ("line", 0.8, 3), ("radius", 0, 0.5),
+                            ("scale", 0.25, 8)):
+            v = item.get(key)
+            if v is not None and (not number(v) or not lo <= v <= hi):
+                hint = "; sizes are fractions of the screen height" if key in ("size", "radius") else ""
+                errors.append(f"{here}.{key}: a number from {lo} to {hi}{hint}")
+        for key, words in EL_WORDS.items():
+            if key in item and item[key] not in words:
+                errors.append(f"{here}.{key}: one of {', '.join(sorted(words))}")
+        for key in ("color", "fill", "border", "tint", "badge", "letter_color"):
+            v = item.get(key)
+            if v is not None and not (isinstance(v, str) and COLOR.match(v)):
+                errors.append(f"{here}.{key}: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
+        when = item.get("when")
+        if when is not None:
+            if not isinstance(when, dict):
+                errors.append(f"{here}.when: a table {{ system, aspect, has }}")
+            else:
+                for k in when:
+                    if k not in ("system", "aspect", "has"):
+                        warnings.append(f"{here}.when.{k}: unknown key (system, aspect, has)")
+                for v in ([when["aspect"]] if isinstance(when.get("aspect"), str) else when.get("aspect") or []):
+                    if v not in ASPECTS:
+                        warnings.append(f"{here}.when.aspect: unknown shape {v}")
+                for v in ([when["has"]] if isinstance(when.get("has"), str) else when.get("has") or []):
+                    if v not in EL_DATA:
+                        warnings.append(f"{here}.when.has: unknown data {v}")
+        texts = [(item.get("text"), f"{here}.text")]
+        if kind == "text":
+            if not isinstance(item.get("text"), str):
+                errors.append(f"{here}.text: required text; element ignored")
+            check_font(folder, item.get("font"), f"{here}.font")
+        if kind == "image":
+            src = item.get("src")
+            src = [src] if isinstance(src, str) else (src if isinstance(src, list) else [])
+            fb = item.get("fallback")
+            fixed = [p for p in src + ([fb] if isinstance(fb, str) else [])
+                     if isinstance(p, str) and p and "${" not in p and p not in EL_DATA]
+            for p in fixed:
+                if p.startswith("/") or ".." in Path(p).parts:
+                    errors.append(f"{here}: {p!r} must be a relative path inside the theme")
+            live = len(fixed) < len(src) + (1 if isinstance(fb, str) else 0)
+            ft = item.get("fallback_text")
+            if not src and fb is None and ft is None:
+                errors.append(f"{here}.src: names no picture; element ignored")
+            elif fixed and not live and ft is None and not any((folder / p).is_file() for p in fixed):
+                errors.append(f"{here}.src: none of {', '.join(fixed)} exists")
+            for p in src:
+                check_text_data(p, f"{here}.src")
+            if isinstance(ft, dict):
+                for key in ft:
+                    if key not in EL_TEXT:
+                        warnings.append(f"{here}.fallback_text.{key}: unknown key")
+                texts.append((ft.get("text"), f"{here}.fallback_text.text"))
+                check_font(folder, ft.get("font"), f"{here}.fallback_text.font")
+            elif isinstance(ft, str):
+                texts.append((ft, f"{here}.fallback_text"))
+        if kind == "frame":
+            if not isinstance(item.get("image"), str):
+                errors.append(f"{here}.image: a theme picture; element ignored")
+            elif "${" not in item["image"]:
+                file_ref(folder, item["image"], f"{here}.image")
+        if kind == "panel" and item.get("style") not in (None, "plain", "glass"):
+            errors.append(f"{here}.style: plain or glass")
+        if kind == "hints" and item.get("style") not in (None, "filled", "outline", "text"):
+            errors.append(f"{here}.style: filled, outline or text")
+        for text, where in texts:
+            check_text_data(text, where)
+    if lists > 1:
+        warnings.append(f"{at}: more than one list element; only the first is used")
+    if items and lists == 0:
+        warnings.append(f"{at}: no list element; the d-pad moves through a list nobody sees")
+
+
+def check_font(folder: Path, font, at: str):
+    if font is None:
+        return
+    if not isinstance(font, str):
+        errors.append(f"{at}: a face (regular, semibold, bold, mono) or a .ttf file")
+    elif font.lower().endswith((".ttf", ".otf")):
+        file_ref(folder, font, at)
+    elif font not in EL_FACES:
+        errors.append(f"{at}: a face (regular, semibold, bold, mono) or a .ttf file")
 
 
 LAUNCHER_PACKAGE = "0.1.0"  # CARGO_PKG_VERSION of the launcher today; not the system version (v3.1.0)
@@ -314,6 +529,15 @@ def check_theme(folder: Path):
     for key in t:
         if key not in THEME_TOP:
             warnings.append(f"unknown top-level key {key} (ignored by the launcher)")
+    top_vars = own_vars(t, "")
+    aspects = t.get("aspect")
+    t = substitute(t, top_vars)
+    if isinstance(aspects, dict):
+        t["aspect"] = {
+            shape: substitute(table, top_vars | own_vars(table, f"aspect.{shape}."))
+            if isinstance(table, dict) else table
+            for shape, table in aspects.items()}
+    unresolved(t, "")
     check_min_launcher(t.get("min_launcher"))
     if "name" not in t:
         errors.append("name: missing (the store refuses the theme)")
