@@ -21,8 +21,10 @@ the launcher:
   (`[settings]`: sidebar or list, tiles, inset groups, title, icon colours).
   Since update 20261125.15 the systems and games screens of a view can also
   be **free screens**: a list of `el` elements (image, text, rect, frame,
-  panel, list, hints, status) each in its own rectangle, with system/game
-  data, `[vars]`, `when` and `base` (`references/themes.md`, section 8,
+  panel, list, hints, status; since 20261125.16 also `rating` stars and a
+  `fields` card) each in its own rectangle, with system/game data and
+  pictures (`system.logo`, `system.image`, `game.cover`/`screenshot`/`logo`),
+  `[vars]`, `when` and `base` (`references/themes.md`, section 8,
   "Free screens"). Nothing in a theme is executed.
 - A **module** is an external program (sh, bash + `jq`, or an aarch64 binary)
   that the launcher starts in a systemd sandbox and talks to with JSON-RPC 2.0,

@@ -57,7 +57,9 @@ PC test
       warnings (`shipped_themes` with the theme in `themes/`); captured at
       the three sizes after the pictures loaded, with a system that has its
       own art and one that falls back, a game with and without logo,
-      cover and description; `when.aspect` elements checked on their shape.
+      cover, description and rating (`rating`, `fields` lines hide when
+      empty), a system with and without a `logos/` file; `when.aspect`
+      elements checked on their shape.
 - [ ] Shelves and a games grid on 720x720: nothing under the hints, no cut
       row; `[aspect.square]` adjusts hero, items and `list.h`.
 - [ ] On 720x720 also: no empty gap between search results and keyboard

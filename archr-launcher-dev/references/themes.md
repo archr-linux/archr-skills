@@ -455,7 +455,7 @@ on a fresh install. To open on the shelves by default, put them in your own
 `[view.lista]` and offer the classic list under another id (Ellegance:
 `[view.classica]`).
 
-### Free screens (`el`, since update 20261125.15)
+### Free screens (`el`, since update 20261125.15; phase 2 in 20261125.16)
 
 The systems and games screens of a view can be a **list of elements**
 instead of the fixed places above (`list`, `panel`, `art`, `info`...): full
@@ -550,13 +550,30 @@ fractions of the **screen height** (0.035 = 17 px at 480 tall, 25 px at
 | `list` | `row`, `gap`, `radius`, `selected` (height or `{ height, fill, color }`), `size`, `selected_size`, `color`, `mark`, `scroll`, `cursor`, `axis`, `columns` (as the view's `list`; `tile` only on systems, `grid` only on games) |
 | `hints` | `align` (default `right`), `style` (`filled`, `outline`, `text`), `color`, `badge`, `letter_color` |
 | `status` | `color` (with it: icons and text straight on the screen, no pill) |
+| `rating` (20261125.16) | `game.rating` as five stars rounded to halves: `star`, `star_half`, `star_empty` (theme pictures; default the launcher's star, half = full cut over an empty, empty = full in `empty`), `color` (multiplies the full star; default theme `text` on the launcher star, none on a theme picture), `empty` (color), `empty_opacity` (0..1; 0.35, or 1 with `empty`/`star_empty`), `size` (one star's side, 0.005..0.3 of the height; default the rect height), `spacing` (0..0.2; default a fifth of a star), `align` (default `left`), `value` (may only be `"game.rating"`). No rating: nothing drawn |
+| `fields` (20261125.16) | a label/value card: `rows` (required list of `{ label, value }` or `{ label, rating = "game.rating" }`, both take `${data}` and `@phrase`), `hide_empty` (default true: an empty line disappears, the ones below move up; the rating line disappears without a rating), `row` (line height, 0.01..1; default rect / lines), `font`, `size` (0.03), `color` (values, right-aligned, shrink to 60 % then "…"), `label_font`, `label_size`, `label_color` (default the theme's `muted`), `upper_labels`, `divider` (color of a thin line under each line), and the rating line's `star`, `star_half`, `star_empty`, `empty`, `empty_opacity`, `spacing`, `align` (default `right`), `star_size` (default the value size; color = `color`). Lines past the rect are left out |
 
 **Image sources**: `src` is a path or a list, first existing wins; paths are
 relative to the theme (no `..`) and may hold data (`arts/${system}.jpg`,
-`frames/${aspect}/border.png`). `game.cover`, `game.screenshot`, `game.logo`
-are the focused game's pictures from `gamelist.xml`. PNG, JPG, WebP, SVG;
-loaded off the draw thread, shrunk to at most 1.5x the screen (cache
-`thumbs/scene`); the element is absent until loaded.
+`frames/${aspect}/border.png`). Besides paths, `src` takes the launcher's
+pictures:
+
+| source | what it is |
+|---|---|
+| `game.cover` | focused game's cover (`<thumbnail>`, else `<image>`) |
+| `game.screenshot` | its screenshot (`<image>` when there is a cover, or `media/screenshots`) |
+| `game.logo` | game logo (`<marquee>` or `media/wheel`); `game.wheel` and `game.marquee` are aliases |
+| `system.logo` (20261125.16) | the theme's `logos/<system>.svg/.png/.webp/.jpg`, also under the system's alias (`megadrive` finds `genesis`) |
+| `system.image` (20261125.16) | the system picture the launcher shows: the user's, the theme's `systems/`, or the shipped one |
+
+`src = ["system.logo", "system.image"]` plus `fallback_text` gives the
+theme logo, else the built-in picture, else the name. These five are
+pictures, not text: valid in `src` and `when.has`, not in `${...}`.
+PNG, JPG, WebP, SVG; loaded off the draw thread, shrunk to at most 1.5x the
+screen and never enlarged (the screen scales smaller ones; cache
+`thumbs/scene`); the element is absent until loaded. On the systems screen
+the two neighbours' pictures preload after the focused one's (a full-screen
+art takes 0.3-1 s cold on the RK3326).
 
 **Data** (`${...}` in `text` and paths): `system` (id; a collection without
 `@`), `system.name`, `system.maker`, `system.year`, `system.count` ("213"),
@@ -593,8 +610,8 @@ do nothing on a free screen. Accent, text colors, background and text-only
 hints apply to list, hints and status when the element sets no color.
 
 **Not there yet** (keys warn and are dropped): system carousel or wheel, a
-grid with an item template (logo over it, favorite badge), video, rating
-stars from a theme picture, theme options in Appearance, `include`,
+grid with an item template (logo over it, favorite badge), video, theme
+options in Appearance, `include`,
 per-element animations, Details as a scene. Say "not available yet" instead
 of inventing keys.
 

@@ -90,6 +90,12 @@ EL_KINDS = {
              "cursor", "columns", "color"},
     "hints": {"align", "style", "color", "badge", "letter_color"},
     "status": {"color"},
+    # Phase 2 (20261125.16): stars and a label/value card.
+    "rating": {"star", "star_half", "star_empty", "color", "empty", "empty_opacity", "spacing",
+               "align", "value", "size"},
+    "fields": {"star", "star_half", "star_empty", "color", "empty", "empty_opacity", "spacing",
+               "align", "rows", "hide_empty", "upper_labels", "row", "font", "size", "label_font",
+               "label_size", "label_color", "divider", "star_size"},
 }
 EL_WORDS = {"fit": {"contain", "cover", "stretch"}, "valign": {"top", "middle", "bottom"},
             "fit_text": {"ellipsis", "shrink"}}
@@ -98,8 +104,10 @@ EL_ANCHORS = {"top-left", "top", "top-right", "left", "center", "right", "bottom
 EL_DATA = {"system", "system.name", "system.fullname", "system.maker", "system.year",
            "system.count", "system.games", "system.favorites", "game.name", "game.description",
            "game.genre", "game.developer", "game.publisher", "game.year", "game.players",
-           "game.rating", "game.last_played", "game.cover", "game.screenshot", "game.logo",
-           "list.index", "list.total", "item", "aspect"}
+           "game.rating", "game.last_played", "list.index", "list.total", "item", "aspect"}
+# Pictures, not text: valid in an image's src and in when.has, not in ${...}.
+EL_PICTURES = {"game.cover", "game.screenshot", "game.logo", "game.wheel", "game.marquee",
+               "system.logo", "system.image"}
 EL_FACES = {"regular", "semibold", "bold", "mono"}
 DATA_REF = re.compile(r"\$\{([^}]*)\}")
 FRAMES = {"header", "footer", "list", "row", "selected", "panel", "art", "button",
@@ -371,7 +379,9 @@ def check_text_data(text, at: str):
     if not isinstance(text, str):
         return
     for name in DATA_REF.findall(text):
-        if name not in EL_DATA:
+        if name in EL_PICTURES:
+            warnings.append(f"{at}: ${{{name}}} is a picture, not text; use it in an image's src")
+        elif name not in EL_DATA:
             warnings.append(f"{at}: unknown data ${{{name}}} (written as it is)")
 
 
@@ -413,8 +423,10 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
                 isinstance(a, list) and len(a) == 2 and all(number(v) for v in a)):
             errors.append(f"{here}.anchor: one of {', '.join(sorted(EL_ANCHORS))} or [x, y]")
         for key, lo, hi in (("z", -1000, 1000), ("opacity", 0, 1), ("rotate", -360, 360),
-                            ("size", 0.01, 0.3), ("line", 0.8, 3), ("radius", 0, 0.5),
-                            ("scale", 0.25, 8)):
+                            ("size", 0.005 if kind == "rating" else 0.01, 0.3), ("line", 0.8, 3),
+                            ("radius", 0, 0.5),
+                            ("scale", 0.25, 8), ("empty_opacity", 0, 1), ("spacing", 0, 0.2),
+                            ("label_size", 0.01, 0.3), ("star_size", 0.005, 0.3)):
             v = item.get(key)
             if v is not None and (not number(v) or not lo <= v <= hi):
                 hint = "; sizes are fractions of the screen height" if key in ("size", "radius") else ""
@@ -422,7 +434,8 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
         for key, words in EL_WORDS.items():
             if key in item and item[key] not in words:
                 errors.append(f"{here}.{key}: one of {', '.join(sorted(words))}")
-        for key in ("color", "fill", "border", "tint", "badge", "letter_color"):
+        for key in ("color", "fill", "border", "tint", "badge", "letter_color", "empty",
+                    "label_color", "divider"):
             v = item.get(key)
             if v is not None and not (isinstance(v, str) and COLOR.match(v)):
                 errors.append(f"{here}.{key}: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
@@ -438,7 +451,7 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
                     if v not in ASPECTS:
                         warnings.append(f"{here}.when.aspect: unknown shape {v}")
                 for v in ([when["has"]] if isinstance(when.get("has"), str) else when.get("has") or []):
-                    if v not in EL_DATA:
+                    if v not in EL_DATA and v not in EL_PICTURES:
                         warnings.append(f"{here}.when.has: unknown data {v}")
         texts = [(item.get("text"), f"{here}.text")]
         if kind == "text":
@@ -450,7 +463,7 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
             src = [src] if isinstance(src, str) else (src if isinstance(src, list) else [])
             fb = item.get("fallback")
             fixed = [p for p in src + ([fb] if isinstance(fb, str) else [])
-                     if isinstance(p, str) and p and "${" not in p and p not in EL_DATA]
+                     if isinstance(p, str) and p and "${" not in p and p not in EL_PICTURES]
             for p in fixed:
                 if p.startswith("/") or ".." in Path(p).parts:
                     errors.append(f"{here}: {p!r} must be a relative path inside the theme")
@@ -470,6 +483,38 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
                 check_font(folder, ft.get("font"), f"{here}.fallback_text.font")
             elif isinstance(ft, str):
                 texts.append((ft, f"{here}.fallback_text"))
+        if kind in ("rating", "fields"):
+            for key in ("star", "star_half", "star_empty"):
+                if key in item and "${" not in str(item[key]):
+                    file_ref(folder, item[key], f"{here}.{key}")
+            if item.get("align") not in (None, "left", "center", "right"):
+                errors.append(f"{here}.align: left, center or right")
+        if kind == "rating" and item.get("value") not in (None, "game.rating"):
+            warnings.append(f"{here}.value: only game.rating has stars; the launcher uses it")
+        if kind == "fields":
+            check_font(folder, item.get("font"), f"{here}.font")
+            check_font(folder, item.get("label_font"), f"{here}.label_font")
+            row = item.get("row")
+            if row is not None and (not number(row) or not 0.01 <= row <= 1):
+                errors.append(f"{here}.row: a number from 0.01 to 1 (fraction of the screen height)")
+            rows = item.get("rows")
+            if not isinstance(rows, list) or not rows:
+                errors.append(f"{here}.rows: a list of {{ label, value }}; element ignored")
+                rows = []
+            for m, line in enumerate(rows):
+                at_row = f"{here}.rows[{m}]"
+                if not isinstance(line, dict):
+                    errors.append(f"{at_row}: must be {{ label, value }}; ignored")
+                    continue
+                for key in line:
+                    if key not in ("label", "value", "rating"):
+                        warnings.append(f"{at_row}.{key}: unknown key (label, value, rating)")
+                if "value" not in line and "rating" not in line:
+                    errors.append(f"{at_row}: needs a value or a rating; ignored")
+                elif "value" not in line and line["rating"] != "game.rating":
+                    warnings.append(f"{at_row}.rating: only game.rating has stars; the launcher uses it")
+                texts.append((line.get("label"), f"{at_row}.label"))
+                texts.append((line.get("value"), f"{at_row}.value"))
         if kind == "frame":
             if not isinstance(item.get("image"), str):
                 errors.append(f"{here}.image: a theme picture; element ignored")
