@@ -80,6 +80,15 @@ PC test
 - [ ] `include` files inside the theme folder, `.toml`, no cycle; an
       inherited view (`base`) checked at the three sizes, its `remove` ids
       really inherited, and a `name` of its own.
+- [ ] Animations (20261125.20): every `enter`/`select` checked with
+      Settings › Animations **On**, **Reduced** and **Off**: On slides and
+      grows into place within 0.6 s (`delay` + `duration`, precheck warns);
+      Reduced only fades (up to 0.12 s), no slide, grow or wait; Off
+      nothing moves. Captures mid-animation look right at the three
+      sizes (nothing slides from where it looks broken); `select` with
+      the d-pad held changes at once; a press during the animation
+      answers at once; a collection's `selected` color fades with the
+      focus.
 - [ ] Shelves and a games grid on 720x720: nothing under the hints, no cut
       row; `[aspect.square]` adjusts hero, items and `list.h`.
 - [ ] On 720x720 also: no empty gap between search results and keyboard

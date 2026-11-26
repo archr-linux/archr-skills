@@ -210,7 +210,8 @@ Top level; each applies to all screens including Settings.
 
 Animation durations are fixed by the launcher (selection 180 ms, systems to
 games 220 ms, ...); a theme picks only the curve. Users can reduce or turn
-animations off.
+animations off. On a free screen a theme can also animate its own elements
+(`enter`, `select`, 20261125.20; see section 8).
 
 ### Shadow, glass, focus, motion, gradient (3.1)
 
@@ -655,7 +656,7 @@ favorite = { corner = "top-right", size = 0.2 }
 | `reflection` | 0..1 (0) | carousel only: lower half mirrored, fading |
 | `columns`, `rows` | 1..8 (3, 3) | grid only; rows scroll one at a time. Here `rows` is a number, not the `fields` list |
 | `opacity` | 0..1 (1) | the items out of focus |
-| `selected` | `{ scale (0.25..4, 1), opacity (1), tint, frame }` | `frame` = `{ color, width (0.001..0.05, 0.005), radius }` line behind the picture, or `{ image, slice, scale, tile }` 9-slice over it |
+| `selected` | `{ scale (0.25..4, 1), opacity (1), tint, color, frame }` | `color` = the name of an item without a picture (default `tint`, 20261125.20); `frame` = `{ color, width (0.001..0.05, 0.005), radius }` line behind the picture, or `{ image, slice, scale, tile }` 9-slice over it |
 | `loop` | bool (false) | last steps on to first and back |
 | `favorite` | `true`, `false`, `{ image, corner, size (0.05..1, 0.2), tint }` | games default: the launcher's star top-right; corners `top-left`, `top-right`, `bottom-left`, `bottom-right` |
 
@@ -667,6 +668,8 @@ exists (default `${item.name}`), `w`/`h` the resting size in a carousel
 behind). Inside `item`, `${item}` is the item's id, `${item.name}` its name,
 and `system.*`/`game.*` are **the item's**, not the focused one's. Item
 text is drawn once at focus size and only scaled/turned while sliding.
+The `selected` color (`tint` on the picture, `color` on the name) fades in
+with the focus and out of the item losing it (20261125.20).
 Animations Reduced/Off: changes at once. Focused item's pictures load first.
 
 **Navigation** on a free screen with `carousel`, `grid` or a `list` with
@@ -722,6 +725,65 @@ nothing decodes off screen. Decoded at the rect's shape and at most
 the details preview at any screen size. `opacity`, `rotate`, `when` work as
 usual (`when = { has = "game.video" }`: only with a clip).
 
+**Animations** (20261125.20): any element can take `enter` (plays when the
+screen comes in: opened, back from a game, Settings or another screen) and
+`select` (plays on each focus change, on elements showing the focused
+item's data: game/system picture and video, name, description, rating,
+fields).
+
+```toml
+[[view.albedo.systems.el]]
+id = "system-art"
+kind = "image"
+src = ["systems/${system}.png"]
+rect = { x = 0.7167, y = 0.5, w = 0.5, h = 0.8 }
+anchor = "center"
+fit = "contain"
+enter = { from = "left", distance = 0.035, duration = 0.5 }    # slides in a little
+select = { from = "right", distance = 0.025, duration = 0.2 }  # and on each system
+
+[[view.albedo.systems.el]]
+id = "count"
+kind = "text"
+text = "${system.games}"
+rect = { x = 0.392, y = 0.075, w = 0.86, h = 0.05 }
+rotate = 90
+pivot = [0, 0.5]
+enter = { duration = 0.4, delay = 0.2, ease = "linear" }       # fades in after the others
+
+[[view.albedo.games.el]]
+id = "game-logo"
+kind = "image"
+src = "game.logo"
+rect = { x = 0.717, y = 0.2125, w = 0.433, h = 0.175 }
+anchor = "center"
+fit = "contain"
+select = { scale = 0.9, duration = 0.2 }                       # grows a little per game
+```
+
+| field | values (default) | notes |
+|---|---|---|
+| `from` | `left` `right` `top` `bottom` `none` (`none`) | side it comes from |
+| `distance` | 0..1 (0.04) | screen fraction; `1` = from off screen |
+| `fade` | bool (true) | comes in transparent |
+| `scale` | 0.1..4 (1) | starting size (`0.9` grows to its own, `1.2` shrinks) |
+| `duration` | 0.05..0.6 s (0.3 `enter`, 0.18 `select`) | |
+| `delay` | 0..0.6 s (0) | stagger elements |
+| `ease` | `out` `in-out` `linear` (`out`) | |
+
+- Cap 0.6 s: `delay` + `duration` over it warns and `delay` is cut. One that
+  neither moves, fades nor grows warns and is dropped.
+- The element ends at its own `rect`/`opacity`; the animation only says
+  where it starts. `enter` and `select` add up.
+- `select` does not play on screen entry. Changes under 0.15 s apart (d-pad
+  held) show the new item at once, no animation.
+- Any button finishes running animations at once; input never waits.
+- Animations **Reduced**: only a short fade (up to 0.12 s), no slide, grow
+  or `delay`. **Off**: nothing moves. Check all three.
+- Grown text, ratings, fields, collections, hints, status and a sliding list
+  are drawn through a screen layer during the animation; pictures, boxes
+  and video only move their rect. A list moves from its `rect` position.
+
 **Inherit a view** (20261125.19): `base = "<other view>"` at the top of
 `[view.<id>]` copies both screens of that view; `remove = [...]` in a screen
 table takes inherited elements away.
@@ -764,13 +826,13 @@ accent_color = "#F9C440"
 art = "arts"
 
 [options.tint]
-name = { en = "Theme tint", pt_BR = "Tom do tema" }
+name = { en = "Theme tone", pt_BR = "Tom do tema" }
 default = "yellow"
 choices.yellow = { name = { en = "Yellow", pt_BR = "Amarelo" } }
 choices.purple = { name = { en = "Purple", pt_BR = "Roxo" }, vars = { accent_color = "#A56DE2" } }
 
 [options.artwork]
-name = { en = "Artwork", pt_BR = "Arte" }
+name = { en = "Art", pt_BR = "Arte" }
 default = "light"
 choices.light = { name = { en = "Light", pt_BR = "Clara" } }
 choices.dark = { name = { en = "Dark", pt_BR = "Escura" }, vars = { art = "arts-dark" } }
@@ -794,7 +856,7 @@ choices.dark = { name = { en = "Dark", pt_BR = "Escura" }, vars = { art = "arts-
   Box art, Box art width, Box art corners, System background, Switcher
   background, Restore defaults; pt_BR: Cor de destaque, Fundo, Fonte...):
   two rows with one name would do different things. Name what it changes
-  ("Theme tint", "Artwork", "Wallpaper"). precheck warns.
+  ("Theme tone", "Art", "Wallpaper"). precheck warns.
 
 **Include** (20261125.19): `include = ["parts/colors.toml", ...]` at the top
 of `theme.toml` (before any `[table]`). Each file reads as if written in
@@ -810,8 +872,8 @@ do nothing on a free screen. Accent, text colors, background and text-only
 hints apply to list, hints and status when the element sets no color.
 
 **Not there yet** (keys warn and are dropped): video with sound, a random
-game's clip of the system on the systems screen, per-element animations
-(`enter`, `select`, animated focus color), Details as a scene. Say "not available yet" instead
+game's clip of the system on the systems screen, `include` inside an
+option choice, Details as a scene. Say "not available yet" instead
 of inventing keys.
 
 **Test**: every block above is checked the launcher's way: parse it with

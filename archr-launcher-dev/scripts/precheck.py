@@ -112,7 +112,12 @@ SCREEN_KEYS = {"header", "title", "status", "divider", "summary", "list", "panel
                "backdrop", "info", "meta", "dots", "decor", "strip"}
 # Free screens (launcher crates/archr-ui/src/layout/scene.rs): the fields of
 # an [[view.<id>.systems.el]] / [[view.<id>.games.el]] element.
-EL_COMMON = {"id", "kind", "base", "rect", "anchor", "z", "opacity", "rotate", "pivot", "when"}
+EL_COMMON = {"id", "kind", "base", "rect", "anchor", "z", "opacity", "rotate", "pivot", "when",
+             "enter", "select"}
+# Phase 6 (20261125.20): enter / select = { from, distance, fade, scale,
+# duration, delay, ease }; nothing runs past ANIM_MAX seconds.
+ANIM_KEYS = {"from", "distance", "fade", "scale", "duration", "delay", "ease"}
+ANIM_MAX = 0.6
 EL_TEXT = {"text", "font", "size", "color", "align", "valign", "upper", "shadow", "wrap", "line",
            "fit_text"}
 EL_KINDS = {
@@ -675,6 +680,9 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
             v = item.get(key)
             if v is not None and not (isinstance(v, str) and COLOR.match(v)):
                 errors.append(f"{here}.{key}: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
+        for key in ("enter", "select"):
+            if key in item:
+                check_anim(item[key], f"{here}.{key}", 0.3 if key == "enter" else 0.18)
         when = item.get("when")
         if when is not None:
             if not isinstance(when, dict):
@@ -789,6 +797,39 @@ def check_scene(folder: Path, view: dict, screen: str, items, at: str):
         warnings.append(f"{at}: no list, carousel or grid; the d-pad moves through a list nobody sees")
 
 
+def check_anim(a, at: str, duration: float):
+    """enter / select (20261125.20), as the launcher reads them."""
+    if not isinstance(a, dict):
+        warnings.append(f"{at}: must be a table {{ from, distance, fade, scale, duration, delay, ease }}; ignored")
+        return
+    for key in a:
+        if key not in ANIM_KEYS:
+            warnings.append(f"{at}.{key}: unknown key ({', '.join(sorted(ANIM_KEYS))})")
+    side = a.get("from", "none")
+    if side not in ("none", "left", "right", "top", "bottom"):
+        warnings.append(f"{at}.from: left, right, top, bottom or none")
+        side = "none"
+    if a.get("ease", "out") not in ("out", "in-out", "linear"):
+        warnings.append(f"{at}.ease: out, in-out or linear")
+    if "fade" in a and not isinstance(a["fade"], bool):
+        warnings.append(f"{at}.fade: true or false")
+    nums = {}
+    for key, default, lo, hi in (("distance", 0.04, 0, 1), ("scale", 1, 0.1, 4),
+                                 ("duration", duration, 0.05, ANIM_MAX), ("delay", 0, 0, ANIM_MAX)):
+        v = a.get(key, default)
+        if not number(v) or not lo <= v <= hi:
+            unit = " seconds" if key in ("duration", "delay") else ""
+            warnings.append(f"{at}.{key}: a number from {lo} to {hi}{unit}; clamped")
+            v = default if not number(v) else min(max(v, lo), hi)
+        nums[key] = v
+    if nums["delay"] + nums["duration"] > ANIM_MAX + 1e-4:
+        warnings.append(f"{at}: delay + duration is {nums['delay'] + nums['duration']:.2f} s, past "
+                        f"{ANIM_MAX} s; the launcher cuts the delay")
+    moves = side != "none" and nums["distance"] > 0
+    if not moves and a.get("fade", True) is False and nums["scale"] == 1:
+        warnings.append(f"{at}: neither moves, fades nor grows; ignored")
+
+
 def check_video(folder: Path, item: dict, here: str) -> bool:
     """kind = "video" (20261125.18). False when the launcher drops it."""
     def sources(key):
@@ -889,17 +930,18 @@ def check_collection(folder: Path, item: dict, kind: str, screen: str, here: str
     sel = item.get("selected")
     if sel is not None:
         if not isinstance(sel, dict):
-            errors.append(f"{here}.selected: {{ scale, opacity, tint, frame }}; ignored")
+            errors.append(f"{here}.selected: {{ scale, opacity, tint, color, frame }}; ignored")
         else:
             for key in sel:
-                if key not in ("scale", "opacity", "tint", "frame"):
-                    warnings.append(f"{here}.selected.{key}: unknown key (scale, opacity, tint, frame)")
+                if key not in ("scale", "opacity", "tint", "color", "frame"):
+                    warnings.append(f"{here}.selected.{key}: unknown key (scale, opacity, tint, color, frame)")
             for key, lo, hi in (("scale", 0.25, 4), ("opacity", 0, 1)):
                 v = sel.get(key)
                 if v is not None and (not number(v) or not lo <= v <= hi):
                     errors.append(f"{here}.selected.{key}: a number from {lo} to {hi}")
-            if "tint" in sel and not (isinstance(sel["tint"], str) and COLOR.match(sel["tint"])):
-                errors.append(f"{here}.selected.tint: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
+            for key in ("tint", "color"):
+                if key in sel and not (isinstance(sel[key], str) and COLOR.match(sel[key])):
+                    errors.append(f"{here}.selected.{key}: must be \"#RRGGBB\" or \"#RRGGBBAA\"")
             fr = sel.get("frame")
             if isinstance(fr, dict) and "image" in fr:
                 check_slices(folder, fr, f"{here}.selected.frame")
