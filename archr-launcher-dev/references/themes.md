@@ -452,10 +452,12 @@ On Home, Up from the first shelf moves the focus to the hero's `actions`
 them, A presses (Continue resumes, Favorite toggles with the star in
 `warning`, More opens the game menu beside the button), Down or B go back.
 
-A theme cannot pick the view a user starts on: it is `launcher.view`, `lista`
-on a fresh install. To open on the shelves by default, put them in your own
-`[view.lista]` and offer the classic list under another id (Ellegance:
-`[view.classica]`).
+A theme opens with its own view (20261126.5): `default_view = "<id>"` (a
+view that exists, own or inherited); without it, the first of the theme's own
+views by id; with none, its base's (`lista`). Choosing the theme in Appearance
+switches `launcher.view` to it; the user can change it afterwards. es2theme
+writes `default_view` ("detailed" when converted). Ellegance still puts its
+shelves in `[view.lista]` and the classic list under `[view.classica]`.
 
 ### Free screens (`el`, since update 20261125.15; phase 2 in 20261125.16, phase 3 in 20261125.17, phase 4 in 20261125.18, phase 5 in 20261125.19, phase 6 in 20261125.20, phase 7 in 20261125.21)
 
