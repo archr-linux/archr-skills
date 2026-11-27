@@ -835,10 +835,32 @@ launch = true                      # "Play" after installing
   muted.
 - Detail: `image`, `gallery` (<= 8), `subtitle`, `facts` (<= 8
   `{title,value,tone?}`), `text` (<= 4000 chars), `buttons` (<= 4
-  `{id,label,icon?,action,progress?}`).
+  `{id,label,icon?,action,progress?,hint?,disabled?}`), `transfer` (below).
+  `progress` 0–100 fills the button and goes into its label ("Downloading
+  58%"); `hint` is what the A hint says when it is not the label ("Cancel
+  download"); `disabled:true` dims the button and A does nothing on it, so it
+  keeps its place during a wait.
+- Buttons always stay on one line: text shrinks first, then the icons drop,
+  then the label is cut with "…"; a label never wraps. Short labels
+  ("Delete", "Page") fit whole with three buttons on any screen.
+- **Wait on a detail** (`transfer`, launcher 0.5.0, only with
+  `screen.transfer` in `capabilities`): `{steps,step,done?,total?}`; `steps`
+  <= 4 texts (text or `{key,args}`), `step` the running one (0 = first),
+  `done`/`total` in bytes (`total` 0 = unknown). The launcher draws the
+  numbered steps above the buttons and below them "15,7 de 27,0 MB · 1,8
+  MB/s" and "faltam ~6 s"; it measures the speed itself between messages,
+  and the screen text gives up the space. Send the whole `transfer` on every
+  change (`screen.show`, or `screen.patch` with top-level `transfer`); a new
+  `step`, fewer bytes or another `total` restart the measurement;
+  `transfer:null` removes it. Typical: step 0 "Download" with bytes, step 1
+  "Install in Mega Drive" while `rom.install` runs; first button with
+  `progress`, a cancel `action` and `hint:"Cancel download"`, the others
+  `disabled` in place.
 - `show` with an id already on the stack replaces it in place; a new id goes
   on top (max 8). `patch target`: `"item:<id>"` or `"button:<id>"`
-  (`progress:null` removes the bar). At most 4 shows/patches per second; over
+  (`label`, `action`, `progress` with `progress:null` removing the bar,
+  `hint`, `disabled`); a top-level `transfer` (no `target`) replaces the
+  detail wait, `null` removes it. At most 4 shows/patches per second; over
   256 queued are dropped; only the last of several toasts shows.
 - Ids and action names: 1 to 128 chars, no control characters.
 - Texts: `@key` or `{key,args}`; any other text is plain, no markup.
@@ -915,7 +937,10 @@ Error codes: `-32001` not allowed, `-32602` bad params, `-32003` quota,
 script error line), `-32601` unknown method. `initialize` lists in
 `capabilities` the `screen.*` methods the launcher draws; one missing there
 (an older launcher without `screen.qr`) is refused with a log warning, so
-check `capabilities` and carry on without it.
+check `capabilities` and carry on without it. Since launcher 0.5.0 the list
+also has `screen.transfer`, `button.hint` and `button.disabled`; an older
+launcher ignores those fields, so rely on them (changing the buttons during a
+wait, say) only when they are listed.
 
 ### Minimal app (sh + jq), from catalogo-demo
 
