@@ -1428,14 +1428,20 @@ description = { en = "Neon pink over deep purple.", pt_BR = "...", es = "...", r
 author = "you"            # <= 40 chars; default: repository owner
 version = "1.2.0"         # <= 24 chars; default: release tag
 license = "CC BY 4.0"     # <= 40 chars; LICENSE file is installed too
-min_launcher = "0.1.0"    # older launchers refuse to install
+min_launcher = "0.2.0"    # older launchers refuse to install
 ```
 
 `min_launcher` is compared with the launcher **package** version
-(`CARGO_PKG_VERSION`, today `0.1.0`), not with the system version Settings
-shows (`v3.1.0 · …`) nor with the theme API number (3.1). Anything above
-`0.1.0` makes today's store refuse the theme ("This theme needs a newer
-launcher version."). Write `0.1.0` or leave the key out.
+(`CARGO_PKG_VERSION`, `0.2.0` since 20261126.6, `0.1.0` before), not with
+the system version Settings shows (`v3.1.0 · …`) nor with the theme API number.
+A launcher below it refuses the install ("This theme needs a newer launcher
+version.").
+
+- `0.1.0`: up to API 3.1 (free screens phases 1-8).
+- `0.2.0`: `tint` on `frame`, `default_view`, tiles drawn in one copy, an
+  app's `${system}` as its module id. A theme using any of these must say
+  `min_launcher = "0.2.0"` (an older launcher draws it broken). es2theme
+  writes the launcher version it converted with.
 
 Which version installs: the latest GitHub release (by tag) if there is one,
 otherwise the default branch as it is. A new release turns the installed

@@ -134,7 +134,7 @@ reads, the gamepad or the R36S speed.
   `gh release view v<version> --json assets -q '.assets[].name'`, fix with
   `gh release upload`, then press **Refresh (Y)** in the store, which reads
   every listed release again.
-- `min_launcher` is the launcher package version (`0.1.0` today), not the
+- `min_launcher` is the launcher package version (`0.2.0` since 20261126.6), not the
   system version (v3.1.0) nor the theme API (3.1). A higher value makes the
   store refuse the theme or module; `precheck.py` flags it.
 - A passing `--check-module` or a nice capture does not prove the thing works
