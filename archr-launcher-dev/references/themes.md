@@ -549,7 +549,7 @@ fractions of the **screen height** (0.035 = 17 px at 480 tall, 25 px at
 | `image` | `src`, `fit` (`contain` default, `cover`, `stretch`), `align` (`left`/`center`/`right`, for a narrower `contain`), `tint` (color multiplied in), `radius`, `fallback` (one more theme path), `fallback_text` (text or a table of text fields, drawn when no source exists) |
 | `text` | `text`, `font` (`regular`/`semibold`/`bold`/`mono` or a `.ttf` in the theme), `size` (0.01..0.3, default 0.035), `color` (default theme `text`), `align`, `valign` (`top`/`middle`/`bottom`), `upper`, `shadow` `{ color, x, y }`, `wrap` (ends in "…"), `fit_text` (`ellipsis` default, `shrink` down to 60 % of size), `line` (0.8..3, default 1.25), `long_text` (`ellipsis` default, `scroll`: only on the details screen, 20261125.21) |
 | `rect` | `fill`, `border` (colors), `radius`, `gradient` `{ from, to, angle }` |
-| `frame` | `image`, `slice` (number or `[l, t, r, b]`), `scale` (0.25..8), `tile` (9-slice over the rectangle) |
+| `frame` | `image`, `slice` (number or `[l, t, r, b]`), `scale` (0.25..8), `tile` (9-slice over the rectangle), `tint` (colour multiplied into the picture, 20261126.4; es2theme maps a tiled image's `color` to it) |
 | `panel` | `radius`, `style` (`plain`, `glass`), `gradient` |
 | `list` | `row`, `gap`, `radius`, `selected` (height or `{ height, fill, color, frame }`; `frame` = `{ image, slice, scale, tile }` 9-slice over the chosen band, 20261125.17), `size`, `selected_size`, `color`, `font` (face or theme `.ttf`, 20261125.17), `align` (`left`/`center`/`right`, 20261125.17), `loop` (20261125.17), `mark`, `scroll`, `cursor`, `axis`, `columns` (as the view's `list`; `tile` only on systems, `grid` only on games) |
 | `carousel` (20261125.17) | the screen's items in a row, column or wheel; see Collections below |
@@ -586,7 +586,7 @@ the two neighbours' pictures preload after the focused one's (a full-screen
 art takes 0.3-1 s cold on the RK3326).
 
 **Data** (`${...}` in `text` and paths): `system` (id; a collection without
-`@`), `system.name`, `system.maker`, `system.year`, `system.count` ("213"),
+`@`; an app, its module id: `itchio`), `system.name`, `system.maker`, `system.year`, `system.count` ("213"),
 `system.games` ("213 games", localized), `system.favorites`, `game.name`,
 `game.description`, `game.genre`, `game.developer`, `game.publisher`,
 `game.year`, `game.players`, `game.rating` (0..5, one decimal),
