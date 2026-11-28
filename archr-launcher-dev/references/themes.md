@@ -538,7 +538,7 @@ Rules that bite:
 -1..2, w/h up to 4, may go off screen), `anchor` (`top-left` default, `top`,
 `top-right`, `left`, `center`, `right`, `bottom-left`, `bottom`,
 `bottom-right` or `[x, y]`: the rectangle's point placed at x, y), `z`
-(-1000..1000, default 0), `opacity` (0..1), `rotate` (degrees -360..360,
+(-1000..1000, default 0), `opacity` (0..1; `0` is not drawn since launcher 0.6.0, the list and video keep their state), `rotate` (degrees -360..360,
 clockwise), `pivot` (`[x, y]` of the rectangle, default `[0.5, 0.5]`),
 `when`, `base`.
 
@@ -591,7 +591,8 @@ art takes 0.3-1 s cold on the RK3326).
 `@`; an app, its module id: `itchio`), `system.name`, `system.maker`, `system.year`, `system.count` ("213"),
 `system.games` ("213 games", localized), `system.favorites`, `game.name`,
 `game.description`, `game.genre`, `game.developer`, `game.publisher`,
-`game.year`, `game.players`, `game.rating` (0..5, one decimal),
+`game.year`, `game.players`, `game.players.count` ("1-2" as the list shows
+it, 0.6.0), `game.rating` (0..5, one decimal),
 `game.last_played` ("2 days ago"), `list.index` (from 1), `list.total`,
 `item` (system id or game file name), `aspect` (`classic`/`square`/`wide`).
 `game.*` is empty on the systems screen. An unknown name stays literal with
@@ -610,8 +611,20 @@ its text. Works in the whole file, top-level keys included
 (`accent = "$gold"`). Data names are never variables. Unknown variable:
 warning, value kept literally.
 
+**Per-system variables** (launcher 0.6.0): `[system.<id>.vars]` tables
+(`[system.snes.vars]`, `[system.favorites.vars]`, id without `@`) change a
+variable with the focused system on the free screens (systems, games,
+details). Order: the system's own, then the one it shares a name with
+(`megadrive` finds `genesis`), then `[vars]` (with shape and options).
+Works in any field of an `el` (color, text, path, number, `opacity`), also
+through `base`; a collection (`list`, `carousel`, `grid`) stays on `[vars]`,
+with a warning. Outside `el` only `[vars]` applies. Only `vars` is allowed in
+`[system.<id>]`. Many systems: split with `include` (64 KiB per file).
+Needs `min_launcher = "0.6.0"`.
+
 **Conditions**: `when = { system = [...], aspect = ..., has = "game.year" }`,
-each a name or a list, all keys must hold. A failing element is not drawn
+each a name or a list, all keys must hold. `collection = true` draws only
+on collections (favorites, recents), `false` only on systems and apps (0.6.0). A failing element is not drawn
 and does not load its picture.
 
 **Reuse**: `base = "systems.hints"` (or `"hints"` on the same screen) copies
@@ -721,6 +734,8 @@ loop = false                              # plays once, then the fallback
 | `mute` | `true` only | no sound yet; `mute = false` warns and stays muted |
 
 One `video` per screen (systems or games); a second warns and is dropped.
+A video for another shape (`when.aspect`) or with `opacity = 0` does not
+count and is never decoded (0.6.0).
 It uses the Game Details preview player (separate ffmpeg process, one
 decode thread, 25 fps) and follows Settings › **Preview video**: off shows
 only the fallback. It stops on another item (the next waits its `delay`),
@@ -1326,9 +1341,9 @@ Settings test draw every page, to look them all over. `cargo test -p archr-ui
 The launcher repository has a PC tool that converts an EmulationStation theme
 into a free-screen theme folder (`docs/temas.md`, "Converter um tema do
 EmulationStation"). The launcher itself never reads XML. It reads the classic
-XML format (`theme.xml`, `formatVersion 7`, subsets, `customView`); themes in
-the newer layout (`capabilities.xml`, `variant`, `colorScheme`,
-`aspectRatio`) go through the same path with less coverage.
+XML format (`theme.xml`, `formatVersion 7`, subsets, `customView`); ES-DE
+themes (`capabilities.xml`, `variant`, `colorScheme`, `fontSize`,
+`aspectRatio`, `language`) go through the same path.
 
 ```sh
 cargo run --release -p archr-es2theme -- \
@@ -1375,6 +1390,17 @@ cargo run --release -p archr-es2theme -- \
   `animateColor`, the name under grid tiles, `controllerActivity`, play
   count. Release date becomes the year; hints use the launcher's letters.
   Elements ES draws without the theme naming them are not created.
+- ES-DE themes (0.6.0): files read variables first (`colorScheme`,
+  `fontSize`, `language`), then `include`, views, `variant`, `aspectRatio`.
+  Per-system files (`metadata/${system.theme}.xml`) become
+  `[system.<id>.vars]` in `parts/systems-<n>.toml` (a text empty by default
+  gets `opacity` 0 in `[vars]`, 1 on those systems). `fontSize` is the
+  option `fontsize`; `${system.fullName.noCollections}` becomes
+  `${system.name}` with `when.collection = false` (`.autoCollections` true;
+  `.customCollections` left out). One video per screen: a background video
+  becomes its still (`<name>-still.jpg`, ffmpeg on the PC); a GIF its first
+  frame (`-still.png`); video with sound under another is dropped.
+  `clock`/`systemstatus` become one `status`.
 - The result is a starting point: fonts, list row height and `${system}`
   pictures (the original's system names) often need hand fixes. Render it
   (systems, games and details of each view at 640x480, 720x720, 1024x768):
@@ -1432,7 +1458,7 @@ min_launcher = "0.2.0"    # older launchers refuse to install
 ```
 
 `min_launcher` is compared with the launcher **package** version
-(`CARGO_PKG_VERSION`, `0.2.0` since 20261126.6, `0.1.0` before), not with
+(`CARGO_PKG_VERSION`, `0.6.0` today, `0.2.0` since 20261126.6, `0.1.0` before), not with
 the system version Settings shows (`v3.1.0 · …`) nor with the theme API number.
 A launcher below it refuses the install ("This theme needs a newer launcher
 version.").
@@ -1440,8 +1466,12 @@ version.").
 - `0.1.0`: up to API 3.1 (free screens phases 1-8).
 - `0.2.0`: `tint` on `frame`, `default_view`, tiles drawn in one copy, an
   app's `${system}` as its module id. A theme using any of these must say
-  `min_launcher = "0.2.0"` (an older launcher draws it broken). es2theme
-  writes the launcher version it converted with.
+  `min_launcher = "0.2.0"` (an older launcher draws it broken).
+- `0.6.0`: `[system.<id>.vars]`, `when.collection`, `${game.players.count}`;
+  a video for another shape or with `opacity = 0` does not count as the
+  screen's second; an element with `opacity = 0` is not drawn (a text used
+  to show in full). es2theme writes `0.5.0`, or `0.6.0` when the converted
+  theme uses any of this.
 
 Which version installs: the latest GitHub release (by tag) if there is one,
 otherwise the default branch as it is. A new release turns the installed

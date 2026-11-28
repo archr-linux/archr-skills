@@ -505,7 +505,7 @@ the release is wrong (keys from `locales/en.toml`):
 | loose `module.toml` differs from the packaged one | "The package holds another module.toml than the one shown." (`modules.manifest_mismatch`) |
 | GitHub publishes no digest for the asset | "GitHub does not publish the package checksum; it was not installed." (`modules.no_digest`) |
 | package over 8 MB | "The module is larger than the store accepts." (`modules.too_big`) |
-| `api_version` above 4 or `min_launcher` above the launcher package (`0.2.0` today; not the system version v3.1.0) | "This module needs a newer launcher." (`modules.incompatible`) |
+| `api_version` above 4 or `min_launcher` above the launcher package (`0.6.0` today; not the system version v3.1.0) | "This module needs a newer launcher." (`modules.incompatible`) |
 | no `preview.png` | no error; the permissions screen has no picture |
 
 The store keeps each repository's release and `module.toml` for an hour.
