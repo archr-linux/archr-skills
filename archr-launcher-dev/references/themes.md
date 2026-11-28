@@ -1401,6 +1401,15 @@ cargo run --release -p archr-es2theme -- \
   becomes its still (`<name>-still.jpg`, ffmpeg on the PC); a GIF its first
   frame (`-still.png`); video with sound under another is dropped.
   `clock`/`systemstatus` become one `status`.
+- Store output: `archr-es2theme <in> <out> --store [--systems es_systems.cfg]
+  --name --author --license --description "<en>" "<pt>"` keeps only the files
+  `theme.toml` cites (and `logos/ systems/ videos/`), drops pictures/videos
+  of systems the console lacks (`--systems`), resizes pictures to the biggest
+  box at 1024x768 +25 % (WebP/JPG q78; needs ImageMagick), re-encodes videos
+  to <= 854x480 without sound (ffmpeg; over 10 MB total or 8 MB one: dropped,
+  stills shown; kept video needs `min_launcher = "0.6.1"`) and writes the
+  store metadata. Check a folder with
+  `ARCHR_STORE_CHECK=<out> cargo test -p archr-launcher --test store_check -- --nocapture`.
 - The result is a starting point: fonts, list row height and `${system}`
   pictures (the original's system names) often need hand fixes. Render it
   (systems, games and details of each view at 640x480, 720x720, 1024x768):
@@ -1458,7 +1467,7 @@ min_launcher = "0.2.0"    # older launchers refuse to install
 ```
 
 `min_launcher` is compared with the launcher **package** version
-(`CARGO_PKG_VERSION`, `0.6.0` today, `0.2.0` since 20261126.6, `0.1.0` before), not with
+(`CARGO_PKG_VERSION`, `0.6.1` today, `0.2.0` since 20261126.6, `0.1.0` before), not with
 the system version Settings shows (`v3.1.0 · …`) nor with the theme API number.
 A launcher below it refuses the install ("This theme needs a newer launcher
 version.").
@@ -1472,6 +1481,8 @@ version.").
   screen's second; an element with `opacity = 0` is not drawn (a text used
   to show in full). es2theme writes `0.5.0`, or `0.6.0` when the converted
   theme uses any of this.
+- `0.6.1`: the store installs the theme's `.mp4` (8 MB each); an image with
+  `tint` and `radius` comes out in the `tint` color.
 
 Which version installs: the latest GitHub release (by tag) if there is one,
 otherwise the default branch as it is. A new release turns the installed
@@ -1485,14 +1496,18 @@ gh release create v1.0.0 --title "v1.0.0" --notes "First release" --latest
 
 What the store installs (everything else is silently dropped):
 
-- files with extensions `toml png jpg jpeg webp svg ttf otf ogg wav txt md`
+- files with extensions `toml png jpg jpeg webp svg ttf otf ogg wav txt md`,
+  and `mp4` since launcher 0.6.1 (up to 8 MB each; a larger one is left out
+  and the theme shows its still picture)
   (so no `.gif`, `.mp3`, `.woff`, `.aseprite`, ...), plus `LICENSE`,
   `LICENCE`, `COPYING`;
 - never dotfiles or dot-folders (`.github/`), symlinks, hard links or special
   files. A path with `..` or an absolute path refuses the whole theme.
 
-Limits: download 25 MB, installed content 60 MB, 5000 entries, 8 folder levels;
-sounds 1 MiB each; `theme.toml` 64 KiB.
+Limits: download 128 MB, installed content 192 MB, 5000 entries, 8 folder
+levels; sounds 1 MiB each; `theme.toml` 64 KiB. Aim far below: ~25 MB is
+quick on a console, pictures need not exceed 1024x768. A theme with video
+says `min_launcher = "0.6.1"`.
 
 The store installs into `themes/<owner>-<repo>/` with a `.archr-store.toml`
 marker; it never overwrites a folder it did not create. Installing does not
